@@ -20,3 +20,7 @@ from simulacrum.interception.session_store import (
 )
 
 __all__ += ["InMemorySessionStore", "SessionStore"]
+
+from simulacrum.interception.session_store import CallAttempt, CallOutcome
+
+__all__ += ["CallAttempt", "CallOutcome"]

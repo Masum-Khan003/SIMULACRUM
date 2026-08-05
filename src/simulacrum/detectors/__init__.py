@@ -39,3 +39,11 @@ __all__ += [
     "PermissionEscalationResult",
     "check_permission_escalation",
 ]
+
+from simulacrum.detectors.loop_rate import (
+    DEFAULT_RATE_THRESHOLD,
+    LoopRateResult,
+    check_tool_loop_rate,
+)
+
+__all__ += ["DEFAULT_RATE_THRESHOLD", "LoopRateResult", "check_tool_loop_rate"]
