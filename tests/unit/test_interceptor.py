@@ -435,3 +435,23 @@ def test_exfiltration_attack_not_allowed_through_real_interceptor():
         )
     assert last_result.allowed is False
     assert last_result.exfiltration_result.is_frequency_exceeded is True
+
+
+def test_require_approval_call_logged_as_pending_not_blocked(registries, embedder):
+    """
+    Closes the real gap flagged in docs/BACKLOG.md: a REQUIRE_APPROVAL
+    call must be logged to the session store as PENDING_APPROVAL, not
+    BLOCKED — the two are genuinely different situations (held for a
+    human decision vs. actively rejected by a detector), and
+    loop_rate.py's evasion classification depends on this distinction.
+    """
+    from simulacrum.session import CallOutcome
+
+    tier_registry, tool_registry, schema_registry, session_store, breaker, approval_queue = registries
+    task = _task_for(TaskType.FLIGHT_BOOKING, embedder)
+    result = _call(registries, task, TaskType.FLIGHT_BOOKING, "s1", "book_flight", {})
+    assert result.response_tier is ResponseTier.REQUIRE_APPROVAL
+
+    attempts = session_store.get_attempts(session_id="s1")
+    assert len(attempts) == 1
+    assert attempts[0].outcome is CallOutcome.PENDING_APPROVAL

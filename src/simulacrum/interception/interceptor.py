@@ -236,8 +236,13 @@ def intercept_and_call(
     elif response_tier is ResponseTier.REQUIRE_APPROVAL:
         request = approval_queue.submit(session_id=session_id, tool_name=tool_name, params=params)
         approval_request_id = request.request_id
+        # PENDING_APPROVAL, not BLOCKED — held pending a human decision
+        # is a different situation from an active detector block, and
+        # loop_rate.py'''s evasion classification depends on this
+        # distinction (a retry-after-approval-hold is not the
+        # adversarial retry-after-block signature).
         session_store.append_attempt(
-            session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED
+            session_id=session_id, call=call_record, outcome=CallOutcome.PENDING_APPROVAL
         )
     else:  # ALLOW or FLAG
         session_store.append_attempt(

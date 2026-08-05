@@ -3,13 +3,17 @@ Session store (§03, §06): accumulates a session's tool-call history so
 session-level detectors (permission escalation, exfiltration,
 loop-rate — §04) can score against the FULL trajectory. Tracks call
 OUTCOME alongside each call (§09 gap 5: retry-vs-evasion needs to know
-whether the prior attempt was blocked, errored, or succeeded).
+whether the prior attempt was blocked, errored, held pending approval,
+or succeeded).
 
-Lives in its own top-level package, NOT under interception, precisely
-BECAUSE both detectors and interception need it — see finding 003
-(docs/findings/003-detectors-interception-circular-import.md) for why
-putting it under interception caused a circular import once loop_rate.py
-(a detector) needed these types directly.
+PENDING_APPROVAL is distinct from BLOCKED (added to close a real gap:
+previously REQUIRE_APPROVAL calls were logged as BLOCKED, conflating
+"held pending a human decision" with "actively blocked by a
+detector" — which matters because loop_rate.py's evasion
+classification treats a retry-after-BLOCKED as the adversarial
+signature; a retry after a call that's merely awaiting human sign-off
+is a different, non-adversarial situation and must not be classified
+the same way).
 """
 from __future__ import annotations
 
@@ -24,6 +28,7 @@ class CallOutcome(Enum):
     ALLOWED = "allowed"
     BLOCKED = "blocked"
     TOOL_ERROR = "tool_error"
+    PENDING_APPROVAL = "pending_approval"
 
 
 @dataclass(frozen=True)

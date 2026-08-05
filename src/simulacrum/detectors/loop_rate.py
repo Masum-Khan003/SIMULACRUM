@@ -5,11 +5,10 @@ requires — retry-after-block-with-varied-params (evasion, high weight)
 vs retry-after-error (benign, low weight) — distinguished via the
 tool's own outcome, not conflated into one undifferentiated rate signal.
 
-Scope note: interceptor currently only ever produces ALLOWED/BLOCKED
-outcomes (no stub tool simulates a TOOL_ERROR response yet), so the
-benign-retry path is proven here at the detector level but not yet
-exercised end-to-end through intercept_and_call — tracked in
-docs/BACKLOG.md.
+A retry after PENDING_APPROVAL (held for human sign-off, not actively
+blocked) is neither evasion nor benign-error-retry — it's a distinct,
+expected situation (e.g. a user resubmitting with a small correction
+while waiting on approval) and must not be misclassified as either.
 """
 from __future__ import annotations
 
@@ -55,6 +54,9 @@ def check_tool_loop_rate(
             is_evasion_retry = True
         elif last.outcome is CallOutcome.TOOL_ERROR and params_changed:
             is_benign_retry = True
+        # CallOutcome.PENDING_APPROVAL and CallOutcome.ALLOWED are
+        # deliberately NOT classified as either evasion or benign —
+        # neither is the adversarial or error-correction signature.
 
     return LoopRateResult(
         tool_name=tool_name,

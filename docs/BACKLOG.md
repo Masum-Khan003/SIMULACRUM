@@ -210,3 +210,13 @@ scheduled for later, not silently dropped.
   invariant (flagged by >=1 detector) instead of a specific tier
   outcome. Still only 3 of §08's target 5-8 task types — remains
   open, smaller gap than before.
+
+- ~~SessionStore has no PENDING call-outcome~~ — RESOLVED. Added
+  CallOutcome.PENDING_APPROVAL, distinct from BLOCKED. interceptor.py
+  now logs REQUIRE_APPROVAL calls with this outcome. loop_rate.py's
+  evasion classification explicitly excludes PENDING_APPROVAL from
+  both evasion and benign-retry categories (neither applies — it'''s
+  a distinct, expected situation). Proven via
+  test_retry_after_pending_approval_not_classified_as_evasion_or_benign
+  and test_require_approval_call_logged_as_pending_not_blocked (real
+  end-to-end through the interceptor, not just the isolated detector).

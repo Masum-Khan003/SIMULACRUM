@@ -120,3 +120,24 @@ def test_custom_rate_threshold_respected(store):
     )
     assert result.same_tool_attempt_count == 2
     assert result.is_rate_exceeded is True
+
+
+def test_retry_after_pending_approval_not_classified_as_evasion_or_benign(store):
+    """
+    Closes the real gap this fix addresses: a retry after a call that
+    was held PENDING_APPROVAL (not actively blocked, not errored) must
+    be neither evasion nor benign-retry — it's a distinct, expected
+    situation (e.g. resubmitting with a correction while awaiting
+    human sign-off), and misclassifying it as evasion would falsely
+    penalize ordinary approval-flow usage.
+    """
+    store.append_attempt(
+        session_id="s1",
+        call=ToolCall(tool_name="book_flight", params={"flight_id": "FL1"}, turn_index=0),
+        outcome=CallOutcome.PENDING_APPROVAL,
+    )
+    result = check_tool_loop_rate(
+        session_store=store, session_id="s1", tool_name="book_flight", params={"flight_id": "FL2"}
+    )
+    assert result.is_evasion_retry is False
+    assert result.is_benign_retry is False
