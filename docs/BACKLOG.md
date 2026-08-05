@@ -165,3 +165,27 @@ scheduled for later, not silently dropped.
   single-conceptual-queue architecture; would need per-queue labeling
   if §23's Phase-3 ops/security-approver role ever introduces genuinely
   separate concurrent approval queues.
+
+- ~~Docker Compose full stack (Redis + API + Prometheus + Grafana)~~ —
+  RESOLVED. Dockerfile + expanded docker-compose.yml, Prometheus
+  scraping the API's real /metrics endpoint (confirmed "health": "up"),
+  Grafana provisioned with dashboard-as-code JSON (5 panels matching
+  §18's metric list), not clicked together manually. Verified end-to-
+  end: metric family registration -> API exposure -> Prometheus
+  scrape -> queryable data, for both labeled and unlabeled metrics.
+
+- **Real POST /intercept endpoint** (deliberately deferred this step).
+  Current API only exposes /health and /metrics; nothing yet drives
+  real interception traffic through the containerized service itself
+  (all real traffic so far is from pytest, a separate process).
+  Building this is legitimate future work — needs its own design pass
+  for request/response schema and session lifecycle across HTTP
+  requests, not bolted on as a side effect of a metrics-visibility fix.
+
+- **Labeled metrics show no series until first use** (documented
+  behavior, not a bug). simulacrum_circuit_breaker_state and
+  simulacrum_detector_flags_total won't appear in Prometheus queries
+  until intercept_and_call() actually runs at least once with real
+  label values. Grafana panels for these will show "No data" on a
+  freshly-started stack until real traffic occurs — expected, not
+  broken.

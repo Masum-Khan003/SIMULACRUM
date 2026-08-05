@@ -1,0 +1,66 @@
+{
+  "title": "Simulacrum Overview",
+  "uid": "simulacrum-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Actions by Response Tier",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (response_tier) (rate(simulacrum_actions_total[5m]))",
+          "legendFormat": "{{response_tier}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Detector Flags",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (detector_name) (rate(simulacrum_detector_flags_total[5m]))",
+          "legendFormat": "{{detector_name}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Circuit Breaker State",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "simulacrum_circuit_breaker_state",
+          "legendFormat": "{{breaker_name}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Approval Queue Pending",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+      "targets": [
+        { "expr": "simulacrum_approval_queue_pending" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Approval Outcomes",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(simulacrum_approval_outcomes_total[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    }
+  ]
+}
