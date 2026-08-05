@@ -101,3 +101,20 @@ scheduled for later, not silently dropped.
   loop-rate, exfiltration) now run on every call through
   intercept_and_call(). Frequency-variant attack corpus proven blocked
   end-to-end. See test_interceptor.py.
+
+- ~~Circuit breaker not built~~ — RESOLVED. CircuitBreaker wraps the
+  full 5-detector scoring path as ONE unit (documented simplification
+  vs. per-detector breakers — see circuit_breaker.py). On open circuit,
+  fallback is decided per §07 tool risk tier: READ_ONLY/REVERSIBLE_WRITE
+  fail open, IRREVERSIBLE_* fail closed, unregistered tool defaults to
+  fail closed. guardrail_bypassed field distinguishes this from a
+  normal scored decision. Proven via
+  test_open_circuit_fails_open_for_read_only_tool and
+  test_open_circuit_fails_closed_for_irreversible_tool.
+
+- **Per-detector circuit breakers** (deferred scope decision, see
+  circuit_breaker.py docstring). Current breaker trips on ANY scoring
+  failure across all 5 detectors as one unit. A broken embedding
+  model, for instance, currently trips the SAME breaker as a broken
+  schema registry, even though only one detector is actually affected.
+  Revisit if this coarseness proves too blunt in practice.
