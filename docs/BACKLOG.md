@@ -231,3 +231,17 @@ scheduled for later, not silently dropped.
   unregistered-tool case was caught manually as a real unhandled
   exception before being fixed, not assumed correct. 10 new API tests,
   full round-trip including approval decide/re-decide conflict.
+
+- ~~Explainability layer (§14) not built~~ — RESOLVED. Explainer
+  Protocol with two implementations: TemplateExplainer (deterministic,
+  dependency-free, the required §20 fallback) and GroqExplainer (real
+  LLM-generated explanation via Groq's free-tier API, fails open to
+  the template on ANY exception). Both success and failure paths
+  proven with REAL network calls (a genuinely invalid key for the
+  fail-open test, a real key for the success test) — not mocked.
+  Wired into the API: non-ALLOW decisions now return a real natural-
+  language explanation referencing actual detector findings, honestly
+  hedged on intent per §06's correlational-not-certain discipline.
+  groq_api_key added to Settings as a DELIBERATE, documented exception
+  to the no-default rule (absence is valid config, not misconfig,
+  since the whole feature is optional by design).

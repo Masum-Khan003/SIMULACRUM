@@ -14,6 +14,7 @@ from __future__ import annotations
 from simulacrum.attribution import FakeSemanticEmbedder, TaskRepresentation
 from simulacrum.config import get_settings
 from simulacrum.detectors import build_default_schema_registry
+from simulacrum.explainability import GroqExplainer, TemplateExplainer
 from simulacrum.interception import build_default_registry
 from simulacrum.interception.circuit_breaker import CircuitBreaker
 from simulacrum.risk_tiers import ToolRegistry
@@ -32,6 +33,13 @@ class AppState:
         self.circuit_breaker = CircuitBreaker()
         self.approval_queue = ApprovalQueue()
         self.embedder = FakeSemanticEmbedder()
+        # §20: explanation layer is optional, fails open to the
+        # deterministic template when no key is configured — same
+        # "absence is valid config" pattern as groq_api_key itself.
+        if settings.groq_api_key:
+            self.explainer = GroqExplainer(api_key=settings.groq_api_key)
+        else:
+            self.explainer = TemplateExplainer()
         self._task_representations: dict[str, TaskRepresentation] = {}
         self._task_types: dict[str, TaskType] = {}
 

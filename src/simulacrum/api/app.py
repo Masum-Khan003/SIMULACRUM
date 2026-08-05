@@ -14,10 +14,42 @@ from pydantic import BaseModel
 
 import simulacrum.observability  # noqa: F401 — registers metric families
 from simulacrum.api.state import UnknownSessionError, app_state
+from simulacrum.explainability import ExplanationContext
 from simulacrum.interception import intercept_and_call
 from simulacrum.risk_tiers import UnregisteredToolError
 from simulacrum.task_sim import TaskType
 from simulacrum.tier_engine import ApprovalAlreadyDecidedError, UnknownApprovalRequestError
+
+
+def _collect_flagged_reasons(result) -> tuple[str, ...]:
+    reasons = []
+    if result.schema_violation is not None and result.schema_violation.is_violation:
+        v = result.schema_violation
+        reasons.append(
+            f"schema_violation: missing={sorted(v.missing_params)}, "
+            f"unexpected={sorted(v.unexpected_params)}"
+        )
+    if result.divergence_result is not None and result.divergence_result.is_divergent:
+        reasons.append(
+            f"param_divergence: similarity={result.divergence_result.similarity:.3f} "
+            f"below threshold"
+        )
+    if result.escalation_result is not None and result.escalation_result.is_escalated:
+        reasons.append(
+            f"permission_escalation: {sorted(result.escalation_result.escalated_tools)} "
+            f"outside task baseline"
+        )
+    if result.loop_rate_result is not None and result.loop_rate_result.is_flagged:
+        reasons.append(
+            f"loop_rate: evasion={result.loop_rate_result.is_evasion_retry}, "
+            f"rate_exceeded={result.loop_rate_result.is_rate_exceeded}"
+        )
+    if result.exfiltration_result is not None and result.exfiltration_result.is_flagged:
+        reasons.append(
+            f"exfiltration: frequency={result.exfiltration_result.is_frequency_exceeded}, "
+            f"content={result.exfiltration_result.is_content_anomalous}"
+        )
+    return tuple(reasons)
 
 app = FastAPI(title="Simulacrum", version="0.0.1")
 
@@ -69,6 +101,7 @@ class InterceptResponse(BaseModel):
     tool_result: dict[str, str] | None
     approval_request_id: str | None
     guardrail_bypassed: bool
+    explanation: str | None
 
 
 @app.post("/sessions/{session_id}/intercept", response_model=InterceptResponse)
@@ -99,6 +132,20 @@ def intercept(session_id: str, body: InterceptRequest) -> InterceptResponse:
         # IS correct behavior, just needs to surface as a clean 4xx
         # to the HTTP caller instead of an unhandled 500.
         raise HTTPException(status_code=404, detail=str(e)) from None
+    # Only generate an explanation for non-ALLOW decisions — an
+    # unremarkable clean allow needs no explanation, and generating
+    # one for every single call would waste real LLM calls for no
+    # benefit (§14 is about explaining FLAGGED/HELD/BLOCKED actions).
+    explanation = None
+    if result.response_tier.value != "allow":
+        explanation = app_state.explainer.explain(
+            context=ExplanationContext(
+                tool_name=result.tool_name,
+                response_tier=result.response_tier.value,
+                flagged_reasons=_collect_flagged_reasons(result),
+            )
+        )
+
     return InterceptResponse(
         tool_name=result.tool_name,
         response_tier=result.response_tier.value,
@@ -106,6 +153,7 @@ def intercept(session_id: str, body: InterceptRequest) -> InterceptResponse:
         tool_result=result.tool_result,
         approval_request_id=result.approval_request_id,
         guardrail_bypassed=result.guardrail_bypassed,
+        explanation=explanation,
     )
 
 

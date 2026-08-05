@@ -55,3 +55,33 @@ def test_settings_is_cached(monkeypatch):
     first = get_settings()
     second = get_settings()
     assert first is second
+
+
+def test_groq_api_key_defaults_to_none_when_unset(monkeypatch):
+    """
+    Deliberate exception to the no-default rule: groq_api_key is
+    Optional[str] = None by design, since the explanation layer is
+    OPTIONAL (§20) and its absence is valid configuration, not a
+    misconfiguration — unlike redis_url.
+    """
+    monkeypatch.setenv("SIMULACRUM_REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    settings = get_settings()
+    assert settings.groq_api_key is None
+
+
+def test_groq_api_key_present_when_set(monkeypatch):
+    monkeypatch.setenv("SIMULACRUM_REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("GROQ_API_KEY", "some-real-key-value")
+    settings = get_settings()
+    assert settings.groq_api_key == "some-real-key-value"
+
+
+def test_empty_groq_api_key_treated_as_none(monkeypatch):
+    """Empty string should be treated the same as unset, not as a
+    'blank but present' key — same discipline as redis_url's empty
+    check, applied here for consistency even though it's optional."""
+    monkeypatch.setenv("SIMULACRUM_REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("GROQ_API_KEY", "")
+    settings = get_settings()
+    assert settings.groq_api_key is None
