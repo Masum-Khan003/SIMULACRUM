@@ -138,3 +138,16 @@ scheduled for later, not silently dropped.
   treat retries after PENDING differently than retries after an
   actual BLOCKED finding. Not done here to avoid scope creep in an
   already-large wiring step.
+
+- ~~Real Redis wiring~~ — RESOLVED. RedisSessionStore implements the
+  exact same SessionStore protocol as InMemorySessionStore, proving
+  the Phase-1 abstraction actually pays off. Docker Compose service
+  added (docker-compose.yml). Real round-trip proven for outcome
+  enums and special-character params through JSON serialization.
+
+- **CI needs a Redis service container** (§22 implication of the item
+  above). test_redis_session_store.py requires `docker compose up -d`
+  to pass — CI must start the Redis service before running the test
+  suite, or this file needs to be excluded/marked and run separately.
+  Not yet reflected in any CI config since no .github/workflows file
+  exists yet (§22 is itself still backlog). Flag when CI is built.
