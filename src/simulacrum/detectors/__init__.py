@@ -27,3 +27,15 @@ __all__ += [
     "ParamDivergenceResult",
     "check_param_divergence",
 ]
+
+from simulacrum.detectors.permission_escalation import (
+    BASELINE_FOOTPRINT,
+    PermissionEscalationResult,
+    check_permission_escalation,
+)
+
+__all__ += [
+    "BASELINE_FOOTPRINT",
+    "PermissionEscalationResult",
+    "check_permission_escalation",
+]

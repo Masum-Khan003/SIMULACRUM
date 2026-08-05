@@ -4,10 +4,14 @@ from simulacrum.attack_suite.param_tampering import (
     generate_param_tampering_missing_session,
     generate_param_tampering_unexpected_session,
 )
+from simulacrum.attack_suite.permission_escalation import (
+    generate_permission_escalation_session,
+)
 
 __all__ = [
     "LabeledAttackSession",
     "generate_injection_session",
     "generate_param_tampering_missing_session",
     "generate_param_tampering_unexpected_session",
+    "generate_permission_escalation_session",
 ]
