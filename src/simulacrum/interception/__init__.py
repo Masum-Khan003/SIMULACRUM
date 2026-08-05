@@ -13,3 +13,10 @@ from simulacrum.interception.interceptor import (
 )
 
 __all__ += ["BlockedCallError", "InterceptionResult", "intercept_and_call"]
+
+from simulacrum.interception.session_store import (
+    InMemorySessionStore,
+    SessionStore,
+)
+
+__all__ += ["InMemorySessionStore", "SessionStore"]
