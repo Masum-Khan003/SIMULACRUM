@@ -276,3 +276,20 @@ scheduled for later, not silently dropped.
   "unauthenticated requests" warnings — functionally fine (public
   model, no auth required), but worth a HF_TOKEN env var for higher
   rate limits if this is used heavily. Not urgent.
+
+- ~~Sub-task boundary detection: embedding-only signal too weak~~ —
+  RESOLVED via architectural upgrade, not recalibration. Real MiniLM
+  calibration showed genuine, measured overlap (up to 240 samples,
+  multiple phrasing styles) between refinement and new-task
+  similarity distributions — root-caused to this being a REASONING
+  task, not a pure similarity task. Built GroqBoundaryClassifier
+  (real LLM reasoning, primary) + EmbeddingBoundaryClassifier
+  (deterministic fallback, demoted from primary). 8/8 correct on
+  clear cases; ambiguous edge cases produce defensible, inspectable
+  reasoning rather than a confident-but-wrong number. New
+  POST /sessions/{id}/turn endpoint wired end-to-end.
+
+- ~~Finding 006: current_task_text drift across refinement turns~~ —
+  RESOLVED. Real structural bug (predated this session, only surfaced
+  by first-ever multi-turn end-to-end test) — current_task_text now
+  only advances on an actual new-sub-task verdict, not every turn.

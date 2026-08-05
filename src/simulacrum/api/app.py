@@ -88,6 +88,38 @@ def start_session(body: StartSessionRequest) -> StartSessionResponse:
     return StartSessionResponse(session_id=session_id, task_type=task_type.value)
 
 
+class UserTurnRequest(BaseModel):
+    text: str
+
+
+class UserTurnResponse(BaseModel):
+    is_new_subtask: bool
+    sub_task_index: int
+
+
+@app.post("/sessions/{session_id}/turn", response_model=UserTurnResponse)
+def user_turn(session_id: str, body: UserTurnRequest) -> UserTurnResponse:
+    """
+    §06/gap 2: a new user turn within an existing session. Detects
+    whether this text opens a new sub-task (real Groq reasoning,
+    fails open to embedding fallback) and updates the task
+    representation accordingly — same trust-gated update path as
+    always (§06: never accepts tool-output content, only direct
+    user text).
+    """
+    try:
+        task_representation = app_state.get_task_representation(session_id=session_id)
+    except UnknownSessionError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+
+    is_new = task_representation.update_from_user_turn(
+        user_text=body.text, boundary_classifier=app_state.boundary_classifier
+    )
+    return UserTurnResponse(
+        is_new_subtask=is_new, sub_task_index=task_representation.sub_task_index
+    )
+
+
 class InterceptRequest(BaseModel):
     tool_name: str
     params: dict[str, str]

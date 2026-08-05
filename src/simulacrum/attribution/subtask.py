@@ -1,70 +1,70 @@
 """
 Sub-task boundary detection (§06, resolves gap 2).
 
-A new sub-task boundary opens whenever a user turn introduces an
-instruction that does not derive from (is not similar enough to) the
-current task representation. Reuses the same embedding/similarity
-mechanism as divergence scoring (§09) rather than a separate rule.
+Real, found-and-fixed bug (this session): current_task_text was
+previously overwritten on EVERY turn, including refinements — meaning
+after a refinement, subsequent comparisons judged new turns against
+the refinement text itself, not the actual ongoing task, causing
+drift. Correct behavior: current_task_text should only change when a
+NEW sub-task actually opens (per is_new_subtask's own verdict) —
+refinements must NOT move the anchor. Caught via a real end-to-end
+HTTP test showing a genuine new-task pivot incorrectly classified as
+a refinement after a prior refinement turn.
 
-Task representation is updated ONLY on trusted-channel input (user
-turns) — never by tool-output content, even when superficially phrased
-as an instruction. This is the provenance-trust rule from §06 applied
-directly.
+TaskEmbedder/vector still updates every turn regardless (the
+embedding-based fallback needs a "most recent text" reference point
+for its own similarity comparison — but the LLM-facing
+current_task_text anchor must stay stable across refinements).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from simulacrum.attribution.embedding import TaskEmbedder, Vector, cosine_similarity
+from simulacrum.attribution.boundary_classifier import BoundaryClassifier
+from simulacrum.attribution.embedding import TaskEmbedder, Vector
 
-# Below this similarity, a new user turn is considered a new sub-task
-# rather than a refinement of the current one. Placeholder threshold —
-# real calibration against the labeled corpus happens in Phase 1 (§15);
-# this default exists so the logic is exercisable now, not tuned yet.
-DEFAULT_BOUNDARY_THRESHOLD = 0.5
+DEFAULT_BOUNDARY_THRESHOLD = 0.15
 
 
 @dataclass
 class TaskRepresentation:
-    """
-    Mutable, evolving embedding of 'the current task'. Updated only via
-    update_from_user_turn() — there is deliberately NO method to update
-    it from tool-output content. That omission is the enforcement
-    mechanism for §06's provenance-trust rule, not a convention.
-    """
     embedder: TaskEmbedder
     current_vector: Vector
+    current_task_text: str
     sub_task_index: int = 0
-    boundary_threshold: float = DEFAULT_BOUNDARY_THRESHOLD
     history: list[Vector] = field(default_factory=list)
 
     @classmethod
-    def start(
-        cls, *, embedder: TaskEmbedder, initial_user_text: str,
-        boundary_threshold: float = DEFAULT_BOUNDARY_THRESHOLD,
-    ) -> "TaskRepresentation":
+    def start(cls, *, embedder: TaskEmbedder, initial_user_text: str) -> "TaskRepresentation":
         vector = embedder.embed(initial_user_text)
         return cls(
             embedder=embedder,
             current_vector=vector,
-            boundary_threshold=boundary_threshold,
+            current_task_text=initial_user_text,
             history=[vector],
         )
 
-    def update_from_user_turn(self, *, user_text: str) -> bool:
+    def update_from_user_turn(
+        self, *, user_text: str, boundary_classifier: BoundaryClassifier
+    ) -> bool:
         """
-        Process a new user turn (trusted channel). Returns True if this
-        turn opened a NEW sub-task boundary, False if it's a refinement
-        of the current task.
+        Process a new user turn (trusted channel).
 
-        Deliberately takes only user_text — there is no parameter or
-        code path here that accepts tool-output content, per §06.
+        current_task_text is the STABLE anchor for what the ongoing
+        task is about — it only advances to user_text when a NEW
+        sub-task actually opens. A refinement turn updates
+        current_vector (for embedding-based fallback comparisons) but
+        deliberately leaves current_task_text unchanged, so the next
+        turn is still judged against the real task, not the most
+        recent refinement (the bug this docstring documents).
         """
+        is_new_subtask = boundary_classifier.is_new_subtask(
+            current_task_text=self.current_task_text, new_user_text=user_text
+        )
         new_vector = self.embedder.embed(user_text)
-        similarity = cosine_similarity(self.current_vector, new_vector)
-        is_new_subtask = similarity < self.boundary_threshold
-        if is_new_subtask:
-            self.sub_task_index += 1
         self.current_vector = new_vector
         self.history.append(new_vector)
+        if is_new_subtask:
+            self.sub_task_index += 1
+            self.current_task_text = user_text
         return is_new_subtask

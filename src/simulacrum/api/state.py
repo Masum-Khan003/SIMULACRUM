@@ -43,6 +43,7 @@ class AppState:
         # off-topic -0.03-0.15 (mean 0.04), clean separation, no
         # overlap, across 360 real samples (cleared
         # MIN_CALIBRATION_SAMPLES). Requires `pip install -e ".[ml]"`.
+        from simulacrum.attribution import EmbeddingBoundaryClassifier, GroqBoundaryClassifier
         from simulacrum.detectors import FAKE_DIVERGENCE_THRESHOLD, MINILM_DIVERGENCE_THRESHOLD
 
         if os.environ.get("SIMULACRUM_USE_REAL_EMBEDDINGS") == "1":
@@ -61,6 +62,18 @@ class AppState:
             self.explainer = GroqExplainer(api_key=settings.groq_api_key)
         else:
             self.explainer = TemplateExplainer()
+
+        # §06/gap 2 boundary detection: real Groq reasoning as primary,
+        # embedding fallback always available. Uses this same
+        # AppState-level embedder, so boundary detection'''s fallback
+        # is consistent with whatever divergence scoring is using.
+        boundary_fallback = EmbeddingBoundaryClassifier(embedder=self.embedder, threshold=0.15)
+        if settings.groq_api_key:
+            self.boundary_classifier = GroqBoundaryClassifier(
+                api_key=settings.groq_api_key, fallback=boundary_fallback
+            )
+        else:
+            self.boundary_classifier = boundary_fallback
 
         self._task_representations: dict[str, TaskRepresentation] = {}
         self._task_types: dict[str, TaskType] = {}

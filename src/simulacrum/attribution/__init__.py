@@ -25,3 +25,11 @@ __all__ = [
 from simulacrum.attribution.real_embedder import MiniLMEmbedder
 
 __all__.append("MiniLMEmbedder")
+
+from simulacrum.attribution.boundary_classifier import (
+    BoundaryClassifier,
+    EmbeddingBoundaryClassifier,
+    GroqBoundaryClassifier,
+)
+
+__all__ += ["BoundaryClassifier", "EmbeddingBoundaryClassifier", "GroqBoundaryClassifier"]
