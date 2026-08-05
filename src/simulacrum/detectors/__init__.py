@@ -15,3 +15,15 @@ __all__ = [
     "build_default_schema_registry",
     "check_schema",
 ]
+
+from simulacrum.detectors.param_divergence import (
+    DEFAULT_DIVERGENCE_THRESHOLD,
+    ParamDivergenceResult,
+    check_param_divergence,
+)
+
+__all__ += [
+    "DEFAULT_DIVERGENCE_THRESHOLD",
+    "ParamDivergenceResult",
+    "check_param_divergence",
+]

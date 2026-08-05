@@ -54,3 +54,45 @@ def cosine_similarity(a: Vector, b: Vector) -> float:
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+_STOPWORDS = frozenset({
+    "a", "an", "the", "and", "or", "to", "for", "of", "in", "on", "with",
+    "please", "my", "me", "it", "anything", "regarding", "from", "is",
+    "are", "this", "that", "at", "be", "will", "your",
+})
+
+
+class FakeSemanticEmbedder:
+    """
+    Bag-of-words / hashing-trick embedder: tokenizes text, drops common
+    stopwords, hashes each remaining word into one of `dim` buckets.
+    Two texts sharing meaningful vocabulary get partial cosine
+    similarity; texts sharing none get ~0.
+
+    Unlike FakeTaskEmbedder (whole-string hash, used for sub-task
+    boundary tests where only identical-vs-different mattered), this
+    is purpose-built for param-vs-task divergence testing, which needs
+    genuine partial-overlap structure — not just distinct-vs-identical.
+
+    Still not real NLP: no stemming (e.g. "flight" != "flights"), no
+    synonyms, no word order. Deterministic and dependency-free, good
+    enough to test divergence LOGIC. Real MiniLM required before this
+    is used for anything user-facing.
+    """
+
+    def __init__(self, *, dim: int = 64) -> None:
+        self._dim = dim
+
+    def embed(self, text: str) -> Vector:
+        words = [
+            w.strip(".,!?;:").lower()
+            for w in text.split()
+        ]
+        vec = [0.0] * self._dim
+        for word in words:
+            if not word or word in _STOPWORDS:
+                continue
+            bucket = int(hashlib.sha256(word.encode()).hexdigest(), 16) % self._dim
+            vec[bucket] += 1.0
+        return tuple(vec)
