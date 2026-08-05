@@ -151,3 +151,17 @@ scheduled for later, not silently dropped.
   suite, or this file needs to be excluded/marked and run separately.
   Not yet reflected in any CI config since no .github/workflows file
   exists yet (§22 is itself still backlog). Flag when CI is built.
+
+- ~~Observability metrics not wired in~~ — RESOLVED. Prometheus
+  metrics (action volume by tier, per-detector flags, breaker state/
+  trips, approval queue depth/outcomes) recorded on every real
+  decision in intercept_and_call() and ApprovalQueue. Verified against
+  REAL scraped values, not just "doesn't crash" (§18's own stated
+  discipline). Finding 004 (shared global gauge test-isolation bug)
+  found and fixed in the same step.
+
+- **APPROVAL_QUEUE_DEPTH remains a single unlabeled global gauge**
+  (finding 004, option (b) chosen over (a)). Correct for current
+  single-conceptual-queue architecture; would need per-queue labeling
+  if §23's Phase-3 ops/security-approver role ever introduces genuinely
+  separate concurrent approval queues.

@@ -1,20 +1,11 @@
 """
-Interception layer (§03, §12, §13): wraps the tool-execution function.
-Five detectors run through a circuit breaker as one scoring unit. The
-result feeds §13's tiered response: ALLOW / FLAG / REQUIRE_APPROVAL /
-BLOCK, decided via decide_response_tier's detector-flag-count severity
-proxy (see tier_engine/response_tier.py docstring for the honesty
-caveat on that proxy).
-
-REQUIRE_APPROVAL calls do NOT execute immediately — submitted to the
-ApprovalQueue, tool_result stays None until a caller separately checks
-the decided outcome and explicitly triggers execution (kept as a
-distinct step from queue.decide() itself, so ApprovalQueue stays
-dependency-free — see chat discussion / commit log).
-
-Circuit-breaker-open fallback (guardrail unavailable) is a SEPARATE
-path from this whole tiered-response system — §07's per-tier fail-
-open/closed still governs when scoring itself can't run at all.
+Interception layer (§03, §12, §13, §18): wraps the tool-execution
+function. Five detectors run through a circuit breaker as one scoring
+unit, feeding §13's tiered response. Prometheus metrics recorded for
+every decision (§18: action volume by tier, per-detector flags,
+breaker state/trips), verified against real usage in tests, not just
+"doesn't crash" (§18's own stated discipline, from a real Palimpsest
+empty-panel bug).
 """
 from __future__ import annotations
 
@@ -37,10 +28,18 @@ from simulacrum.detectors import (
 )
 from simulacrum.interception.circuit_breaker import CircuitBreaker, CircuitOpenError
 from simulacrum.interception.fake_tools import FakeToolRegistry
+from simulacrum.observability import (
+    record_action,
+    record_circuit_breaker_state,
+    record_circuit_breaker_trip,
+    record_detector_flag,
+)
 from simulacrum.risk_tiers import FailPolicy, ToolRegistry, UnregisteredToolError
 from simulacrum.session import CallOutcome, SessionStore
 from simulacrum.task_sim import TaskType, ToolCall
 from simulacrum.tier_engine import ApprovalQueue, ResponseTier, decide_response_tier
+
+BREAKER_NAME = "detector_scoring"
 
 
 class BlockedCallError(RuntimeError):
@@ -70,6 +69,19 @@ class ScoringBundle:
             count += 1
         return count
 
+    def record_flag_metrics(self) -> None:
+        """Emits one DETECTOR_FLAGS_TOTAL increment per flagged detector."""
+        if self.schema_violation is not None and self.schema_violation.is_violation:
+            record_detector_flag(detector_name="schema")
+        if self.divergence_result.is_divergent:
+            record_detector_flag(detector_name="divergence")
+        if self.escalation_result.is_escalated:
+            record_detector_flag(detector_name="permission_escalation")
+        if self.loop_rate_result.is_flagged:
+            record_detector_flag(detector_name="loop_rate")
+        if self.exfiltration_result.is_flagged:
+            record_detector_flag(detector_name="exfiltration")
+
 
 @dataclass(frozen=True)
 class InterceptionResult:
@@ -87,8 +99,6 @@ class InterceptionResult:
 
     @property
     def allowed(self) -> bool:
-        """Convenience: True only for ALLOW/FLAG (executed immediately).
-        REQUIRE_APPROVAL and BLOCK are both 'not allowed yet/at all'."""
         return self.response_tier in (ResponseTier.ALLOW, ResponseTier.FLAG)
 
 
@@ -169,12 +179,14 @@ def intercept_and_call(
             )
         )
     except CircuitOpenError:
+        record_circuit_breaker_state(breaker_name=BREAKER_NAME, is_open=True)
         fail_policy = _fail_policy_for(tier_registry=tier_registry, tool_name=tool_name)
         if fail_policy is FailPolicy.FAIL_OPEN:
             session_store.append_attempt(
                 session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED
             )
             tool_result = tool_registry.call(tool_name=tool_name, params=params)
+            record_action(response_tier=ResponseTier.ALLOW.value)
             return InterceptionResult(
                 tool_name=tool_name,
                 response_tier=ResponseTier.ALLOW,
@@ -191,6 +203,7 @@ def intercept_and_call(
             session_store.append_attempt(
                 session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED
             )
+            record_action(response_tier=ResponseTier.BLOCK.value)
             return InterceptionResult(
                 tool_name=tool_name,
                 response_tier=ResponseTier.BLOCK,
@@ -204,15 +217,14 @@ def intercept_and_call(
                 guardrail_bypass_reason="circuit_open_fail_closed",
             )
 
-    # §07 guarantees every callable tool is registered with a tier —
-    # FakeToolRegistry.call() itself would already have raised if not.
-    # No defensive fallback needed here; a genuinely unregistered tool
-    # is a configuration bug that should surface loudly, not be
-    # silently papered over with an assumed conservative tier.
+    record_circuit_breaker_state(breaker_name=BREAKER_NAME, is_open=False)
+    scoring.record_flag_metrics()
+
     tool_tier = tier_registry.get(tool_name=tool_name).tier
     response_tier = decide_response_tier(
         flagged_detector_count=scoring.flagged_detector_count, tool_tier=tool_tier
     )
+    record_action(response_tier=response_tier.value)
 
     tool_result = None
     approval_request_id = None
@@ -224,14 +236,10 @@ def intercept_and_call(
     elif response_tier is ResponseTier.REQUIRE_APPROVAL:
         request = approval_queue.submit(session_id=session_id, tool_name=tool_name, params=params)
         approval_request_id = request.request_id
-        # Not yet ALLOWED or BLOCKED — pending a human decision. Logged
-        # as BLOCKED for now (call did not execute) since SessionStore
-        # doesn't yet have a PENDING call-outcome concept; tracked in
-        # docs/BACKLOG.md as a real gap, not silently glossed over.
         session_store.append_attempt(
             session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED
         )
-    else:  # ALLOW or FLAG — both execute immediately
+    else:  # ALLOW or FLAG
         session_store.append_attempt(
             session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED
         )
@@ -249,4 +257,3 @@ def intercept_and_call(
         approval_request_id=approval_request_id,
         guardrail_bypassed=False,
     )
-
