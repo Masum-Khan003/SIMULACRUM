@@ -11,6 +11,8 @@ Redis path end-to-end via HTTP, not just via pytest.
 """
 from __future__ import annotations
 
+import os
+
 from simulacrum.attribution import FakeSemanticEmbedder, TaskRepresentation
 from simulacrum.config import get_settings
 from simulacrum.detectors import build_default_schema_registry
@@ -32,7 +34,26 @@ class AppState:
         self.session_store = RedisSessionStore(redis_url=settings.redis_url)
         self.circuit_breaker = CircuitBreaker()
         self.approval_queue = ApprovalQueue()
-        self.embedder = FakeSemanticEmbedder()
+
+        # Real MiniLM is opt-in (SIMULACRUM_USE_REAL_EMBEDDINGS=1),
+        # NOT the default, deliberately — sentence-transformers pulls
+        # in torch, a heavy dependency that would break the lightweight
+        # fresh-venv install we explicitly verified (§22). Calibrated
+        # against real data: on-topic similarity 0.30-0.71 (mean 0.51),
+        # off-topic -0.03-0.15 (mean 0.04), clean separation, no
+        # overlap, across 360 real samples (cleared
+        # MIN_CALIBRATION_SAMPLES). Requires `pip install -e ".[ml]"`.
+        from simulacrum.detectors import FAKE_DIVERGENCE_THRESHOLD, MINILM_DIVERGENCE_THRESHOLD
+
+        if os.environ.get("SIMULACRUM_USE_REAL_EMBEDDINGS") == "1":
+            from simulacrum.attribution import MiniLMEmbedder
+
+            self.embedder = MiniLMEmbedder()
+            self.divergence_threshold = MINILM_DIVERGENCE_THRESHOLD
+        else:
+            self.embedder = FakeSemanticEmbedder()
+            self.divergence_threshold = FAKE_DIVERGENCE_THRESHOLD
+
         # §20: explanation layer is optional, fails open to the
         # deterministic template when no key is configured — same
         # "absence is valid config" pattern as groq_api_key itself.
@@ -40,6 +61,7 @@ class AppState:
             self.explainer = GroqExplainer(api_key=settings.groq_api_key)
         else:
             self.explainer = TemplateExplainer()
+
         self._task_representations: dict[str, TaskRepresentation] = {}
         self._task_types: dict[str, TaskType] = {}
 

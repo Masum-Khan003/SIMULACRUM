@@ -245,3 +245,34 @@ scheduled for later, not silently dropped.
   groq_api_key added to Settings as a DELIBERATE, documented exception
   to the no-default rule (absence is valid config, not misconfig,
   since the whole feature is optional by design).
+
+- ~~Real MiniLM embedding model~~ — RESOLVED. MiniLMEmbedder
+  (sentence-transformers, all-MiniLM-L6-v2, CPU) implements the same
+  TaskEmbedder protocol as the fakes — zero changes needed elsewhere.
+  Gated as an optional `ml` extra (NOT a core dependency) + opt-in via
+  SIMULACRUM_USE_REAL_EMBEDDINGS=1, deliberately, to preserve the
+  lightweight fresh-venv install verified earlier this session (torch
+  is a heavy dependency most test paths don't need). Real calibration
+  data: on-topic similarity 0.30-0.71 (mean 0.51, n=120), off-topic
+  -0.03-0.15 (mean 0.04, n=240), ZERO overlap across 360 real samples
+  — cleared MIN_CALIBRATION_SAMPLES. Retires the root cause behind
+  findings 001 and 005 (fake embedder collision fragility) — proven
+  by re-running the EXACT calendar_scheduling/modify_permissions
+  pairing that exposed finding 005, now correctly caught via real
+  HTTP + real MiniLM.
+
+- **Two separate divergence thresholds, not one shared constant** —
+  real bug found and fixed in this same step: FakeSemanticEmbedder and
+  MiniLM have fundamentally different similarity distributions, so
+  FAKE_DIVERGENCE_THRESHOLD (0.15) and MINILM_DIVERGENCE_THRESHOLD
+  (0.20) are now separate calibrated constants, threaded through
+  intercept_and_call()'s new divergence_threshold parameter and
+  AppState's embedder-dependent selection. Discovered by raising the
+  shared threshold and immediately breaking legitimate
+  FakeSemanticEmbedder-based calls in the existing test suite —
+  caught before commit, not after.
+
+- **HF_TOKEN not configured** (minor). MiniLM model downloads show
+  "unauthenticated requests" warnings — functionally fine (public
+  model, no auth required), but worth a HF_TOKEN env var for higher
+  rate limits if this is used heavily. Not urgent.

@@ -8,6 +8,8 @@ from simulacrum.detectors.schema import (
 )
 from simulacrum.detectors.param_divergence import (
     DEFAULT_DIVERGENCE_THRESHOLD,
+    FAKE_DIVERGENCE_THRESHOLD,
+    MINILM_DIVERGENCE_THRESHOLD,
     ParamDivergenceResult,
     check_param_divergence,
 )
@@ -37,6 +39,8 @@ __all__ = [
     "build_default_schema_registry",
     "check_schema",
     "DEFAULT_DIVERGENCE_THRESHOLD",
+    "FAKE_DIVERGENCE_THRESHOLD",
+    "MINILM_DIVERGENCE_THRESHOLD",
     "ParamDivergenceResult",
     "check_param_divergence",
     "BASELINE_FOOTPRINT",

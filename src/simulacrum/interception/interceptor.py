@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from simulacrum.attribution import TaskRepresentation
 from simulacrum.detectors import (
+    FAKE_DIVERGENCE_THRESHOLD,
     ExfiltrationResult,
     LoopRateResult,
     ParamDivergenceResult,
@@ -111,6 +112,7 @@ def _run_scoring(
     session_id: str,
     tool_name: str,
     params: dict[str, str],
+    divergence_threshold: float,
 ) -> ScoringBundle:
     schema_violation: SchemaViolation | None
     try:
@@ -121,7 +123,8 @@ def _run_scoring(
         schema_violation = None
 
     divergence_result = check_param_divergence(
-        task_representation=task_representation, tool_name=tool_name, params=params
+        task_representation=task_representation, tool_name=tool_name, params=params,
+        threshold=divergence_threshold,
     )
     prior_footprint = session_store.get_tool_footprint(session_id=session_id)
     escalation_result = check_permission_escalation(
@@ -163,6 +166,7 @@ def intercept_and_call(
     tool_name: str,
     params: dict[str, str],
     turn_index: int,
+    divergence_threshold: float = FAKE_DIVERGENCE_THRESHOLD,
 ) -> InterceptionResult:
     call_record = ToolCall(tool_name=tool_name, params=params, turn_index=turn_index)
 
@@ -176,6 +180,7 @@ def intercept_and_call(
                 session_id=session_id,
                 tool_name=tool_name,
                 params=params,
+                divergence_threshold=divergence_threshold,
             )
         )
     except CircuitOpenError:

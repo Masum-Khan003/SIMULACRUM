@@ -21,3 +21,7 @@ __all__ = [
     "call_topic_text",
     "cosine_similarity",
 ]
+
+from simulacrum.attribution.real_embedder import MiniLMEmbedder
+
+__all__.append("MiniLMEmbedder")
