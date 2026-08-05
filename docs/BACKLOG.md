@@ -118,3 +118,23 @@ scheduled for later, not silently dropped.
   model, for instance, currently trips the SAME breaker as a broken
   schema registry, even though only one detector is actually affected.
   Revisit if this coarseness proves too blunt in practice.
+
+- ~~Tier engine not wired into interceptor~~ — RESOLVED.
+  intercept_and_call() now decides full ALLOW/FLAG/REQUIRE_APPROVAL/
+  BLOCK via decide_response_tier (detector-flag-count severity proxy).
+  REQUIRE_APPROVAL submits to ApprovalQueue, does NOT execute — a
+  separate explicit step (caller checks decided outcome, then calls
+  tool_registry directly) triggers execution post-approval, keeping
+  ApprovalQueue dependency-free. Proven via
+  test_require_approval_call_does_not_execute_until_approved.
+
+- **SessionStore has no PENDING call-outcome.** REQUIRE_APPROVAL calls
+  are currently logged as CallOutcome.BLOCKED (call did not execute)
+  since SessionStore's CallOutcome enum only has ALLOWED/BLOCKED/
+  TOOL_ERROR. This conflates "held pending human decision" with
+  "actively blocked by a detector" in session history/loop-rate
+  classification. Real fix: add CallOutcome.PENDING_APPROVAL, distinct
+  from BLOCKED, and update loop_rate.py's evasion classification to
+  treat retries after PENDING differently than retries after an
+  actual BLOCKED finding. Not done here to avoid scope creep in an
+  already-large wiring step.

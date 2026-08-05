@@ -1,21 +1,20 @@
 """
-Interception layer (§03, §12): wraps the tool-execution function so
-every call is scored before it executes. Five detectors run through a
-circuit breaker as ONE scoring unit (§12 scope note: coarse breaker,
-not per-detector — see circuit_breaker.py docstring). If scoring
-fails and the breaker is open, fallback is decided PER TOOL RISK TIER
-(§07) — the core architectural departure from Palimpsest's uniform
-fail-open breaker:
-  - READ_ONLY / REVERSIBLE_WRITE -> fail OPEN (proceed unscored)
-  - IRREVERSIBLE_LOW_VALUE / IRREVERSIBLE_HIGH_VALUE -> fail CLOSED (block)
-  - tool not found in tier_registry at all -> fail CLOSED (conservative
-    default; should not happen given §07's registration enforcement,
-    but code must not assume it)
+Interception layer (§03, §12, §13): wraps the tool-execution function.
+Five detectors run through a circuit breaker as one scoring unit. The
+result feeds §13's tiered response: ALLOW / FLAG / REQUIRE_APPROVAL /
+BLOCK, decided via decide_response_tier's detector-flag-count severity
+proxy (see tier_engine/response_tier.py docstring for the honesty
+caveat on that proxy).
 
-A guardrail-unavailable fallback is a DIFFERENT outcome from a
-detected violation — logged loudly and distinctly (guardrail_bypassed
-field), never silently indistinguishable from "scoring ran, found
-nothing" (§12).
+REQUIRE_APPROVAL calls do NOT execute immediately — submitted to the
+ApprovalQueue, tool_result stays None until a caller separately checks
+the decided outcome and explicitly triggers execution (kept as a
+distinct step from queue.decide() itself, so ApprovalQueue stays
+dependency-free — see chat discussion / commit log).
+
+Circuit-breaker-open fallback (guardrail unavailable) is a SEPARATE
+path from this whole tiered-response system — §07's per-tier fail-
+open/closed still governs when scoring itself can't run at all.
 """
 from __future__ import annotations
 
@@ -41,6 +40,7 @@ from simulacrum.interception.fake_tools import FakeToolRegistry
 from simulacrum.risk_tiers import FailPolicy, ToolRegistry, UnregisteredToolError
 from simulacrum.session import CallOutcome, SessionStore
 from simulacrum.task_sim import TaskType, ToolCall
+from simulacrum.tier_engine import ApprovalQueue, ResponseTier, decide_response_tier
 
 
 class BlockedCallError(RuntimeError):
@@ -55,19 +55,41 @@ class ScoringBundle:
     loop_rate_result: LoopRateResult
     exfiltration_result: ExfiltrationResult
 
+    @property
+    def flagged_detector_count(self) -> int:
+        count = 0
+        if self.schema_violation is not None and self.schema_violation.is_violation:
+            count += 1
+        if self.divergence_result.is_divergent:
+            count += 1
+        if self.escalation_result.is_escalated:
+            count += 1
+        if self.loop_rate_result.is_flagged:
+            count += 1
+        if self.exfiltration_result.is_flagged:
+            count += 1
+        return count
+
 
 @dataclass(frozen=True)
 class InterceptionResult:
     tool_name: str
-    allowed: bool
+    response_tier: ResponseTier
     schema_violation: SchemaViolation | None
     divergence_result: ParamDivergenceResult | None
     escalation_result: PermissionEscalationResult | None
     loop_rate_result: LoopRateResult | None
     exfiltration_result: ExfiltrationResult | None
     tool_result: dict[str, str] | None
+    approval_request_id: str | None = None
     guardrail_bypassed: bool = False
     guardrail_bypass_reason: str | None = None
+
+    @property
+    def allowed(self) -> bool:
+        """Convenience: True only for ALLOW/FLAG (executed immediately).
+        REQUIRE_APPROVAL and BLOCK are both 'not allowed yet/at all'."""
+        return self.response_tier in (ResponseTier.ALLOW, ResponseTier.FLAG)
 
 
 def _run_scoring(
@@ -80,7 +102,6 @@ def _run_scoring(
     tool_name: str,
     params: dict[str, str],
 ) -> ScoringBundle:
-    """The full scoring path, run as ONE unit inside the breaker."""
     schema_violation: SchemaViolation | None
     try:
         schema_violation = check_schema(
@@ -115,8 +136,6 @@ def _fail_policy_for(*, tier_registry: ToolRegistry, tool_name: str) -> FailPoli
     try:
         return tier_registry.get(tool_name=tool_name).fail_policy
     except UnregisteredToolError:
-        # Conservative default — should not happen given §07's
-        # registration enforcement, but never assume.
         return FailPolicy.FAIL_CLOSED
 
 
@@ -127,6 +146,7 @@ def intercept_and_call(
     schema_registry: SchemaRegistry,
     session_store: SessionStore,
     circuit_breaker: CircuitBreaker,
+    approval_queue: ApprovalQueue,
     task_representation: TaskRepresentation,
     task_type: TaskType,
     session_id: str,
@@ -157,7 +177,7 @@ def intercept_and_call(
             tool_result = tool_registry.call(tool_name=tool_name, params=params)
             return InterceptionResult(
                 tool_name=tool_name,
-                allowed=True,
+                response_tier=ResponseTier.ALLOW,
                 schema_violation=None,
                 divergence_result=None,
                 escalation_result=None,
@@ -173,7 +193,7 @@ def intercept_and_call(
             )
             return InterceptionResult(
                 tool_name=tool_name,
-                allowed=False,
+                response_tier=ResponseTier.BLOCK,
                 schema_violation=None,
                 divergence_result=None,
                 escalation_result=None,
@@ -184,30 +204,49 @@ def intercept_and_call(
                 guardrail_bypass_reason="circuit_open_fail_closed",
             )
 
-    schema_flagged = scoring.schema_violation is not None and scoring.schema_violation.is_violation
-    allowed = not (
-        schema_flagged
-        or scoring.divergence_result.is_divergent
-        or scoring.escalation_result.is_escalated
-        or scoring.loop_rate_result.is_flagged
-        or scoring.exfiltration_result.is_flagged
+    # §07 guarantees every callable tool is registered with a tier —
+    # FakeToolRegistry.call() itself would already have raised if not.
+    # No defensive fallback needed here; a genuinely unregistered tool
+    # is a configuration bug that should surface loudly, not be
+    # silently papered over with an assumed conservative tier.
+    tool_tier = tier_registry.get(tool_name=tool_name).tier
+    response_tier = decide_response_tier(
+        flagged_detector_count=scoring.flagged_detector_count, tool_tier=tool_tier
     )
 
-    outcome = CallOutcome.ALLOWED if allowed else CallOutcome.BLOCKED
-    session_store.append_attempt(session_id=session_id, call=call_record, outcome=outcome)
-
     tool_result = None
-    if allowed:
+    approval_request_id = None
+
+    if response_tier is ResponseTier.BLOCK:
+        session_store.append_attempt(
+            session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED
+        )
+    elif response_tier is ResponseTier.REQUIRE_APPROVAL:
+        request = approval_queue.submit(session_id=session_id, tool_name=tool_name, params=params)
+        approval_request_id = request.request_id
+        # Not yet ALLOWED or BLOCKED — pending a human decision. Logged
+        # as BLOCKED for now (call did not execute) since SessionStore
+        # doesn't yet have a PENDING call-outcome concept; tracked in
+        # docs/BACKLOG.md as a real gap, not silently glossed over.
+        session_store.append_attempt(
+            session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED
+        )
+    else:  # ALLOW or FLAG — both execute immediately
+        session_store.append_attempt(
+            session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED
+        )
         tool_result = tool_registry.call(tool_name=tool_name, params=params)
 
     return InterceptionResult(
         tool_name=tool_name,
-        allowed=allowed,
+        response_tier=response_tier,
         schema_violation=scoring.schema_violation,
         divergence_result=scoring.divergence_result,
         escalation_result=scoring.escalation_result,
         loop_rate_result=scoring.loop_rate_result,
         exfiltration_result=scoring.exfiltration_result,
         tool_result=tool_result,
+        approval_request_id=approval_request_id,
         guardrail_bypassed=False,
     )
+
