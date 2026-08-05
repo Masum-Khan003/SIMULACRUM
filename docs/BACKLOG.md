@@ -67,5 +67,8 @@ scheduled for later, not silently dropped.
 
 ## Resolved
 
-- ~~Divergence detector not wired into interceptor~~ — being resolved
-  this step (commit following this backlog doc).
+- ~~Divergence detector not wired into interceptor~~ — RESOLVED.
+  intercept_and_call() now runs both schema conformance and
+  param-vs-task divergence on every call; either flagging blocks.
+  Proven end-to-end against normal corpus + both attack corpora
+  (param_tampering, injection). See test_interceptor.py.
