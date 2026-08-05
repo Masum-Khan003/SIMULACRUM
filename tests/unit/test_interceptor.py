@@ -374,3 +374,40 @@ def test_evasion_retry_blocked_by_loop_rate_through_real_interceptor():
     )
     assert retry.loop_rate_result.is_evasion_retry is True
     assert retry.allowed is False
+
+
+def test_exfiltration_attack_blocked_through_real_interceptor():
+    """
+    Proves exfiltration is ACTUALLY wired in: replays the frequency-
+    variant attack corpus through the real interceptor end to end and
+    confirms the attack call is blocked, with exfiltration_result
+    correctly showing the flag.
+    """
+    from simulacrum.attack_suite import generate_exfiltration_frequency_session
+
+    tier_registry = ToolRegistry()
+    tool_registry = build_default_registry(tier_registry=tier_registry)
+    schema_registry = build_default_schema_registry()
+    session_store = InMemorySessionStore()
+    embedder = FakeSemanticEmbedder()
+    task = _task_for(TaskType.INBOX_TRIAGE, embedder)
+
+    attack = generate_exfiltration_frequency_session(
+        task_type=TaskType.INBOX_TRIAGE, rng=random.Random(1)
+    )
+    last_result = None
+    for call in attack.session.calls:
+        last_result = intercept_and_call(
+            tool_registry=tool_registry,
+            schema_registry=schema_registry,
+            session_store=session_store,
+            task_representation=task,
+            task_type=TaskType.INBOX_TRIAGE,
+            session_id=attack.session.session_id,
+            tool_name=call.tool_name,
+            params=call.params,
+            turn_index=call.turn_index,
+        )
+    # last call in this attack corpus is the one that trips frequency
+    assert last_result.allowed is False
+    assert last_result.exfiltration_result.is_frequency_exceeded is True

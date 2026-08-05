@@ -95,3 +95,9 @@ scheduled for later, not silently dropped.
   circular imports that happen to work under the test suite's actual
   import order. Candidate: a CI step importing every package in
   reverse-alphabetical order too, to surface latent cycles early.
+
+- ~~Exfiltration detector proven but not wired into interceptor~~ —
+  RESOLVED. All 5 Phase-1 detectors (schema, divergence, escalation,
+  loop-rate, exfiltration) now run on every call through
+  intercept_and_call(). Frequency-variant attack corpus proven blocked
+  end-to-end. See test_interceptor.py.

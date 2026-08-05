@@ -1,15 +1,20 @@
 """
 Interception layer (§03, §12): wraps the tool-execution function so
-every call is scored before it executes. Four detectors run on every
+every call is scored before it executes. Five detectors run on every
 call: schema conformance, param-vs-task divergence, permission
-escalation, and tool-loop-rate (retry-vs-evasion split). No trajectory
-model, no circuit breaker, no flag/approve tiers yet.
+escalation, tool-loop-rate (retry-vs-evasion split), and exfiltration
+(frequency/content). No trajectory model, no circuit breaker, no
+flag/approve tiers yet.
 
 Design decisions, stated explicitly:
   - Any flagging detector BLOCKS the call, regardless of risk tier.
-  - Loop-rate checked against PRIOR outcome history; this call's own
-    outcome logged AFTER the decision via append_attempt.
+  - Loop-rate and exfiltration are both checked against PRIOR outcome/
+    call history; this call's own outcome is logged AFTER the
+    decision via append_attempt.
   - Permission-escalation footprint includes the CURRENT call.
+  - Exfiltration frequency count includes the CURRENT call (same
+    "include this call" convention as escalation and loop-rate, for
+    consistency across all session-level checks).
 """
 from __future__ import annotations
 
@@ -17,12 +22,14 @@ from dataclasses import dataclass
 
 from simulacrum.attribution import TaskRepresentation
 from simulacrum.detectors import (
+    ExfiltrationResult,
     LoopRateResult,
     ParamDivergenceResult,
     PermissionEscalationResult,
     SchemaRegistry,
     SchemaViolation,
     UnregisteredSchemaError,
+    check_exfiltration,
     check_param_divergence,
     check_permission_escalation,
     check_schema,
@@ -45,6 +52,7 @@ class InterceptionResult:
     divergence_result: ParamDivergenceResult | None
     escalation_result: PermissionEscalationResult
     loop_rate_result: LoopRateResult
+    exfiltration_result: ExfiltrationResult
     tool_result: dict[str, str] | None
 
 
@@ -82,11 +90,22 @@ def intercept_and_call(
         session_store=session_store, session_id=session_id, tool_name=tool_name, params=params
     )
 
+    exfiltration_result = check_exfiltration(
+        session_store=session_store, session_id=session_id, tool_name=tool_name, params=params
+    )
+
     schema_flagged = schema_violation is not None and schema_violation.is_violation
     divergence_flagged = divergence_result.is_divergent
     escalation_flagged = escalation_result.is_escalated
     loop_rate_flagged = loop_rate_result.is_flagged
-    allowed = not (schema_flagged or divergence_flagged or escalation_flagged or loop_rate_flagged)
+    exfiltration_flagged = exfiltration_result.is_flagged
+    allowed = not (
+        schema_flagged
+        or divergence_flagged
+        or escalation_flagged
+        or loop_rate_flagged
+        or exfiltration_flagged
+    )
 
     call_record = ToolCall(tool_name=tool_name, params=params, turn_index=turn_index)
     outcome = CallOutcome.ALLOWED if allowed else CallOutcome.BLOCKED
@@ -103,5 +122,6 @@ def intercept_and_call(
         divergence_result=divergence_result,
         escalation_result=escalation_result,
         loop_rate_result=loop_rate_result,
+        exfiltration_result=exfiltration_result,
         tool_result=tool_result,
     )
