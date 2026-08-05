@@ -1,25 +1,22 @@
 """
 Interception layer (§03, §12): wraps the tool-execution function so
-every call is scored before it executes. Per-call checks (schema,
-divergence) plus session-level checks (permission escalation) now
-run together — every call passes through both timescales, matching
-§04's fast-path/slow-path split. No trajectory model, no circuit
-breaker, no flag/approve tiers yet (§03 architecture split, tracked
-in docs/BACKLOG.md).
+every call is scored before it executes. Four detectors now run
+together on every call: schema conformance, param-vs-task divergence,
+permission escalation, and tool-loop-rate (with retry-vs-evasion
+split, §09 gap 5). No trajectory model, no circuit breaker, no
+flag/approve tiers yet (§03 architecture split, tracked in
+docs/BACKLOG.md).
 
 Design decisions, stated explicitly:
-  - Any of schema violation, divergence flag, or permission escalation
-    BLOCKS the call, regardless of tool risk tier. §07/§13's fail-open/
-    closed distinction governs GUARDRAIL UNAVAILABILITY, not what to
-    do with an actual finding.
-  - The session store logs EVERY call attempt (allowed or blocked) —
-    a blocked call still happened and is part of the session's real
-    history/footprint for audit and future trajectory analysis, even
-    though its underlying tool never executed.
-  - Permission-escalation check includes the CURRENT call's tool name
-    in the footprint being evaluated (not just prior calls) — so the
-    very call that introduces an out-of-baseline tool is itself
-    caught, not just calls after it.
+  - Any of schema violation, divergence flag, permission escalation,
+    or loop-rate flag (rate-exceeded OR evasion-retry — NOT benign
+    retry, §09 gap 5) BLOCKS the call, regardless of tool risk tier.
+  - Loop-rate is checked against PRIOR outcome history (before this
+    call is logged) — the call's own outcome (ALLOWED/BLOCKED) is
+    what gets appended to the store AFTER the decision, via
+    append_attempt (NOT append_call, which always logs ALLOWED and
+    would silently make evasion detection inert).
+  - Permission-escalation footprint includes the CURRENT call.
 """
 from __future__ import annotations
 
@@ -27,6 +24,7 @@ from dataclasses import dataclass
 
 from simulacrum.attribution import TaskRepresentation
 from simulacrum.detectors import (
+    LoopRateResult,
     ParamDivergenceResult,
     PermissionEscalationResult,
     SchemaRegistry,
@@ -35,16 +33,17 @@ from simulacrum.detectors import (
     check_param_divergence,
     check_permission_escalation,
     check_schema,
+    check_tool_loop_rate,
 )
 from simulacrum.interception.fake_tools import FakeToolRegistry
-from simulacrum.interception.session_store import SessionStore
+from simulacrum.interception.session_store import CallOutcome, SessionStore
 from simulacrum.task_sim import TaskType, ToolCall
 
 
 class BlockedCallError(RuntimeError):
     """Raised when the interception layer blocks a call due to a
-    detected schema violation, divergence flag, or permission
-    escalation."""
+    detected schema violation, divergence flag, permission escalation,
+    or loop-rate flag."""
 
 
 @dataclass(frozen=True)
@@ -54,6 +53,7 @@ class InterceptionResult:
     schema_violation: SchemaViolation | None
     divergence_result: ParamDivergenceResult | None
     escalation_result: PermissionEscalationResult
+    loop_rate_result: LoopRateResult
     tool_result: dict[str, str] | None
 
 
@@ -70,12 +70,11 @@ def intercept_and_call(
     turn_index: int,
 ) -> InterceptionResult:
     """
-    The single entrypoint every tool call should go through. Runs
-    schema conformance, param-vs-task divergence, and permission
-    escalation (against the session footprint INCLUDING this call)
-    BEFORE calling the underlying tool. Logs the call to the session
-    store regardless of the outcome — a blocked attempt is still part
-    of the session's real history.
+    The single entrypoint every tool call should go through. Runs all
+    four detectors BEFORE calling the underlying tool. Logs this
+    call's own outcome (ALLOWED/BLOCKED) to the session store via
+    append_attempt AFTER the decision — required so a future evasion
+    retry against THIS call can be correctly classified.
     """
     schema_violation: SchemaViolation | None
     try:
@@ -95,13 +94,19 @@ def intercept_and_call(
         task_type=task_type, session_footprint=footprint_including_this_call
     )
 
+    loop_rate_result = check_tool_loop_rate(
+        session_store=session_store, session_id=session_id, tool_name=tool_name, params=params
+    )
+
     schema_flagged = schema_violation is not None and schema_violation.is_violation
     divergence_flagged = divergence_result.is_divergent
     escalation_flagged = escalation_result.is_escalated
-    allowed = not (schema_flagged or divergence_flagged or escalation_flagged)
+    loop_rate_flagged = loop_rate_result.is_flagged
+    allowed = not (schema_flagged or divergence_flagged or escalation_flagged or loop_rate_flagged)
 
     call_record = ToolCall(tool_name=tool_name, params=params, turn_index=turn_index)
-    session_store.append_call(session_id=session_id, call=call_record)
+    outcome = CallOutcome.ALLOWED if allowed else CallOutcome.BLOCKED
+    session_store.append_attempt(session_id=session_id, call=call_record, outcome=outcome)
 
     tool_result = None
     if allowed:
@@ -113,5 +118,6 @@ def intercept_and_call(
         schema_violation=schema_violation,
         divergence_result=divergence_result,
         escalation_result=escalation_result,
+        loop_rate_result=loop_rate_result,
         tool_result=tool_result,
     )

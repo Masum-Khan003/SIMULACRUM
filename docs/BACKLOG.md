@@ -80,3 +80,13 @@ scheduled for later, not silently dropped.
   logged to session store regardless of outcome. Proven end-to-end
   against normal corpus + all three attack corpora. See
   test_interceptor.py.
+
+- ~~Loop-rate detector proven but not wired into interceptor~~ —
+  RESOLVED. intercept_and_call() now runs schema, divergence,
+  escalation, AND loop-rate (retry-vs-evasion split) on every call.
+  Call outcome (ALLOWED/BLOCKED) logged via append_attempt so future
+  retries are correctly classified. Proven end-to-end via
+  test_evasion_retry_blocked_by_loop_rate_through_real_interceptor.
+  NOTE: benign-retry (TOOL_ERROR outcome) path still not exercised
+  end-to-end — no stub tool simulates a TOOL_ERROR response yet. Real
+  fix needs at least one stub tool with a simulated failure mode.

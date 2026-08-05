@@ -331,3 +331,46 @@ def test_full_permission_escalation_session_end_to_end_attack_call_blocked():
                         assert result.allowed is True, (
                             f"False positive: {task_type}, {tool_name}, seed {seed}, call {i}"
                         )
+
+
+def test_evasion_retry_blocked_by_loop_rate_through_real_interceptor():
+    """
+    Proves loop-rate is ACTUALLY wired in, not just non-regressing:
+    first call to an out-of-baseline tool gets blocked (by divergence/
+    escalation), then a VARIED-params retry is independently flagged
+    as evasion by loop_rate_result — checked through the real
+    interceptor + real session store, not a hand-built store.
+    """
+    tier_registry = ToolRegistry()
+    tool_registry = build_default_registry(tier_registry=tier_registry)
+    schema_registry = build_default_schema_registry()
+    session_store = InMemorySessionStore()
+    embedder = FakeSemanticEmbedder()
+    task = _task_for(TaskType.INBOX_TRIAGE, embedder)
+
+    first = intercept_and_call(
+        tool_registry=tool_registry,
+        schema_registry=schema_registry,
+        session_store=session_store,
+        task_representation=task,
+        task_type=TaskType.INBOX_TRIAGE,
+        session_id="evasion-test",
+        tool_name="send_payment",
+        params={"amount": "5000"},
+        turn_index=0,
+    )
+    assert first.allowed is False  # blocked by divergence/escalation
+
+    retry = intercept_and_call(
+        tool_registry=tool_registry,
+        schema_registry=schema_registry,
+        session_store=session_store,
+        task_representation=task,
+        task_type=TaskType.INBOX_TRIAGE,
+        session_id="evasion-test",
+        tool_name="send_payment",
+        params={"amount": "4999"},  # varied
+        turn_index=1,
+    )
+    assert retry.loop_rate_result.is_evasion_retry is True
+    assert retry.allowed is False
