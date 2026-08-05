@@ -220,3 +220,14 @@ scheduled for later, not silently dropped.
   test_retry_after_pending_approval_not_classified_as_evasion_or_benign
   and test_require_approval_call_logged_as_pending_not_blocked (real
   end-to-end through the interceptor, not just the isolated detector).
+
+- ~~Real POST /intercept endpoint~~ — RESOLVED. Full HTTP API: POST
+  /sessions (start), POST /sessions/{id}/intercept (real interception
+  through the complete 5-detector + circuit-breaker + tier-engine
+  pipeline, using REAL RedisSessionStore not in-memory), GET/POST
+  /approvals/{id} for the human-approval flow. All discovered error
+  cases (unregistered tool, unknown session, invalid task_type,
+  double-decide) return clean structured 4xx, not raw 500s — the
+  unregistered-tool case was caught manually as a real unhandled
+  exception before being fixed, not assumed correct. 10 new API tests,
+  full round-trip including approval decide/re-decide conflict.
