@@ -1,21 +1,14 @@
 """
 Interception layer (§03, §12): wraps the tool-execution function so
-every call is scored before it executes. Four detectors now run
-together on every call: schema conformance, param-vs-task divergence,
-permission escalation, and tool-loop-rate (with retry-vs-evasion
-split, §09 gap 5). No trajectory model, no circuit breaker, no
-flag/approve tiers yet (§03 architecture split, tracked in
-docs/BACKLOG.md).
+every call is scored before it executes. Four detectors run on every
+call: schema conformance, param-vs-task divergence, permission
+escalation, and tool-loop-rate (retry-vs-evasion split). No trajectory
+model, no circuit breaker, no flag/approve tiers yet.
 
 Design decisions, stated explicitly:
-  - Any of schema violation, divergence flag, permission escalation,
-    or loop-rate flag (rate-exceeded OR evasion-retry — NOT benign
-    retry, §09 gap 5) BLOCKS the call, regardless of tool risk tier.
-  - Loop-rate is checked against PRIOR outcome history (before this
-    call is logged) — the call's own outcome (ALLOWED/BLOCKED) is
-    what gets appended to the store AFTER the decision, via
-    append_attempt (NOT append_call, which always logs ALLOWED and
-    would silently make evasion detection inert).
+  - Any flagging detector BLOCKS the call, regardless of risk tier.
+  - Loop-rate checked against PRIOR outcome history; this call's own
+    outcome logged AFTER the decision via append_attempt.
   - Permission-escalation footprint includes the CURRENT call.
 """
 from __future__ import annotations
@@ -36,14 +29,12 @@ from simulacrum.detectors import (
     check_tool_loop_rate,
 )
 from simulacrum.interception.fake_tools import FakeToolRegistry
-from simulacrum.interception.session_store import CallOutcome, SessionStore
+from simulacrum.session import CallOutcome, SessionStore
 from simulacrum.task_sim import TaskType, ToolCall
 
 
 class BlockedCallError(RuntimeError):
-    """Raised when the interception layer blocks a call due to a
-    detected schema violation, divergence flag, permission escalation,
-    or loop-rate flag."""
+    """Raised when the interception layer blocks a call."""
 
 
 @dataclass(frozen=True)
@@ -69,13 +60,6 @@ def intercept_and_call(
     params: dict[str, str],
     turn_index: int,
 ) -> InterceptionResult:
-    """
-    The single entrypoint every tool call should go through. Runs all
-    four detectors BEFORE calling the underlying tool. Logs this
-    call's own outcome (ALLOWED/BLOCKED) to the session store via
-    append_attempt AFTER the decision — required so a future evasion
-    retry against THIS call can be correctly classified.
-    """
     schema_violation: SchemaViolation | None
     try:
         schema_violation = check_schema(

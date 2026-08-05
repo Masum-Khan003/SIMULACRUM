@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from simulacrum.interception.session_store import CallOutcome, SessionStore
+from simulacrum.session import CallOutcome, SessionStore
 
-DEFAULT_RATE_THRESHOLD = 3  # same-tool attempts (including this one) before flagging runaway rate
+DEFAULT_RATE_THRESHOLD = 3
 
 
 @dataclass(frozen=True)
@@ -30,8 +30,6 @@ class LoopRateResult:
 
     @property
     def is_flagged(self) -> bool:
-        # Benign retry deliberately does NOT contribute to is_flagged —
-        # that's the entire point of the split (gap 5).
         return self.is_rate_exceeded or self.is_evasion_retry
 
 
@@ -46,7 +44,7 @@ def check_tool_loop_rate(
     prior_same_tool = [
         a for a in session_store.get_attempts(session_id=session_id) if a.call.tool_name == tool_name
     ]
-    same_tool_attempt_count = len(prior_same_tool) + 1  # including this call
+    same_tool_attempt_count = len(prior_same_tool) + 1
 
     is_evasion_retry = False
     is_benign_retry = False

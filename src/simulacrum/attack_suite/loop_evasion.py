@@ -18,7 +18,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from simulacrum.interception.session_store import CallOutcome, InMemorySessionStore
+from simulacrum.session import CallOutcome, InMemorySessionStore
 from simulacrum.task_sim import ToolCall
 
 

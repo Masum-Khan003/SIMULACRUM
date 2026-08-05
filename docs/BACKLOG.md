@@ -90,3 +90,8 @@ scheduled for later, not silently dropped.
   NOTE: benign-retry (TOOL_ERROR outcome) path still not exercised
   end-to-end — no stub tool simulates a TOOL_ERROR response yet. Real
   fix needs at least one stub tool with a simulated failure mode.
+
+- **CI import-order check** (finding 003). No current check catches
+  circular imports that happen to work under the test suite's actual
+  import order. Candidate: a CI step importing every package in
+  reverse-alphabetical order too, to surface latent cycles early.
