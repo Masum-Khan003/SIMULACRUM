@@ -42,3 +42,10 @@ from simulacrum.attribution.goal_drift import (
 )
 
 __all__ += ["DriftDetector", "DriftResult", "GroqDriftDetector", "NullDriftDetector"]
+
+from simulacrum.attribution.drift_trigger import (
+    DEFAULT_DRIFT_CHECK_INTERVAL,
+    should_check_drift,
+)
+
+__all__ += ["DEFAULT_DRIFT_CHECK_INTERVAL", "should_check_drift"]

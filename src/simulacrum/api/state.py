@@ -75,6 +75,20 @@ class AppState:
         else:
             self.boundary_classifier = boundary_fallback
 
+        # §04/§10 goal drift: session-level, NOT per-call. Fails open
+        # to NullDriftDetector (never flags) when no key is configured
+        # — the correct conservative default for this specific,
+        # least-certain detector (see goal_drift.py docstring).
+        from simulacrum.attribution import GroqDriftDetector, NullDriftDetector
+
+        drift_fallback = NullDriftDetector()
+        if settings.groq_api_key:
+            self.drift_detector = GroqDriftDetector(
+                api_key=settings.groq_api_key, fallback=drift_fallback
+            )
+        else:
+            self.drift_detector = drift_fallback
+
         self._task_representations: dict[str, TaskRepresentation] = {}
         self._task_types: dict[str, TaskType] = {}
 

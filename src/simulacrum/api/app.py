@@ -136,6 +136,38 @@ class InterceptResponse(BaseModel):
     explanation: str | None
 
 
+class DriftCheckResponse(BaseModel):
+    is_drifted: bool
+    reasoning: str | None
+
+
+@app.post("/sessions/{session_id}/check-drift", response_model=DriftCheckResponse)
+def check_drift(session_id: str) -> DriftCheckResponse:
+    """
+    §04/§10 goal drift, ON-DEMAND (§03 specifies this should really
+    run off-path/async/on-a-rolling-interval — true background
+    scheduling is separate, larger infrastructure not built yet, see
+    docs/BACKLOG.md). This endpoint runs it synchronously, right now,
+    against the session'''s REAL call history from the real session
+    store — usable today, honestly scoped as on-demand rather than
+    automatic.
+    """
+    try:
+        task_representation = app_state.get_task_representation(session_id=session_id)
+    except UnknownSessionError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+
+    calls = app_state.session_store.get_calls(session_id=session_id)
+    call_descriptions = tuple(
+        f"{c.tool_name}({', '.join(f'{k}={v}' for k, v in c.params.items())})" for c in calls
+    )
+    result = app_state.drift_detector.check_drift(
+        task_description=task_representation.current_task_text,
+        call_history=call_descriptions,
+    )
+    return DriftCheckResponse(is_drifted=result.is_drifted, reasoning=result.reasoning)
+
+
 @app.post("/sessions/{session_id}/intercept", response_model=InterceptResponse)
 def intercept(session_id: str, body: InterceptRequest) -> InterceptResponse:
     try:

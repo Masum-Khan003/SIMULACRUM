@@ -293,3 +293,31 @@ scheduled for later, not silently dropped.
   RESOLVED. Real structural bug (predated this session, only surfaced
   by first-ever multi-turn end-to-end test) — current_task_text now
   only advances on an actual new-sub-task verdict, not every turn.
+
+- ~~Goal drift (6th of 6 attack classes, §04/§10)~~ — RESOLVED for the
+  ON-DEMAND case. GroqDriftDetector (real trajectory reasoning) +
+  NullDriftDetector (fails open to not-flagged, the correct
+  conservative default for this least-certain detector). Found and
+  fixed a REAL, serious bug during calibration: a forced one-word
+  verdict (no reasoning room) gave WRONG answers on 2/6 real test
+  cases (a plain flight-booking sequence, a calendar retry-after-
+  correction — both flagged DRIFTED incorrectly). Allowing 1-2
+  sentences of reasoning before the verdict fixed all 6/6 cases,
+  including the hardest one (slow, subtle escalation). All 6 encoded
+  as permanent regression tests (test_goal_drift.py) so a future
+  "optimization" that reintroduces the forced-verdict bug gets caught
+  automatically. POST /sessions/{id}/check-drift wired end-to-end
+  against REAL session call history from real Redis.
+
+- **True async/background drift scheduling NOT built** (honest gap,
+  stated directly — this is NOT done, despite goal drift itself being
+  marked resolved above). §03/§12 specify drift checks should run
+  "off-path, async, on a rolling interval," with a "standing per-
+  session risk decision cached in the session store." What exists
+  today is a pure, tested trigger-interval RULE
+  (should_check_drift()) plus an ON-DEMAND synchronous HTTP endpoint
+  — usable right now, but not automatic. Real background scheduling
+  (a scheduler process/job queue, periodic execution without a caller
+  explicitly hitting the endpoint, cached standing risk state) is
+  separate, larger infrastructure — genuinely bigger than a mechanical
+  follow-up, deserves its own design pass before building.
