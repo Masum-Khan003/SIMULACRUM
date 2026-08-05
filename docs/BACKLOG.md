@@ -32,13 +32,6 @@ scheduled for later, not silently dropped.
   d29afce), not real calibration. Requires: real MiniLM + labeled
   corpus + `MIN_CALIBRATION_SAMPLES` met. Belongs in Phase 2.
 
-- **`LabeledAttackSession` naming collision** (attack_suite). Both
-  `param_tampering.py` and `injection.py` define their own
-  `LabeledAttackSession`, currently resolved via import alias in
-  `__init__.py`. Real fix: shared base dataclass in a new
-  `attack_suite/common.py`. Small, low-risk refactor — do before
-  attack_suite grows to 6 classes and the duplication compounds.
-
 - **Remaining attack classes** (§04, 4 of 6 not yet built):
   permission escalation, exfiltration, goal drift, resource-abuse/
   runaway loops (with retry-vs-evasion split, §09 gap 5). Permission
@@ -66,6 +59,13 @@ scheduled for later, not silently dropped.
   calls to these specific tools too.
 
 ## Resolved
+
+- ~~LabeledAttackSession naming collision~~ — RESOLVED. Shared
+  dataclass moved to attack_suite/common.py, both param_tampering.py
+  and injection.py import it, alias removed from __init__.py.
+  injected_tool_name is optional (None default) since not every
+  attack class substitutes a whole tool.
+
 
 - ~~Divergence detector not wired into interceptor~~ — RESOLVED.
   intercept_and_call() now runs both schema conformance and
