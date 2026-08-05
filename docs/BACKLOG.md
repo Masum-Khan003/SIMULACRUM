@@ -189,3 +189,10 @@ scheduled for later, not silently dropped.
   label values. Grafana panels for these will show "No data" on a
   freshly-started stack until real traffic occurs — expected, not
   broken.
+
+- ~~pyproject.toml missing runtime dependencies~~ — RESOLVED.
+  redis/fastapi/uvicorn/prometheus-client declared as real
+  dependencies, pytest/httpx as dev extras. Verified via genuine
+  fresh-venv install (not the session'''s existing .venv) — 177/177
+  passing using ONLY pyproject.toml-declared deps, per §22's
+  fresh-clone-verification discipline.
