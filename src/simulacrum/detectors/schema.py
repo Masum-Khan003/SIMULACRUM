@@ -5,9 +5,7 @@ needed"). Pure structural validation, no ML, no calibration corpus.
 
 Returns a structured SchemaViolation, never raises on a violation —
 a violation is a detection RESULT to be scored/acted on by the tier
-engine, not an exceptional program state. (Compare: risk_tiers raises
-because an unregistered tool is a configuration error; a schema
-violation is the thing we're trying to detect.)
+engine, not an exceptional program state.
 """
 from __future__ import annotations
 
@@ -62,11 +60,6 @@ class SchemaRegistry:
 def check_schema(
     *, registry: SchemaRegistry, tool_name: str, params: dict[str, str]
 ) -> SchemaViolation:
-    """
-    Checks params against the tool's registered schema. Always returns
-    a SchemaViolation (check .is_violation) — never returns None on a
-    clean call, so callers can't accidentally skip the explicit check.
-    """
     schema = registry.get(tool_name=tool_name)
     provided = frozenset(params.keys())
     missing = schema.required_params - provided
@@ -80,8 +73,7 @@ def build_default_schema_registry() -> SchemaRegistry:
     """
     Schemas for the default stub tool set, matching task_sim's actual
     param generators exactly — same vocabulary-consistency discipline
-    as FakeToolRegistry: the detector, the corpus, and the tools must
-    never silently diverge on what a 'normal' call looks like.
+    as FakeToolRegistry.
     """
     registry = SchemaRegistry()
     registry.register(
@@ -101,5 +93,13 @@ def build_default_schema_registry() -> SchemaRegistry:
     )
     registry.register(
         schema=ToolSchema(tool_name="book_flight", required_params=frozenset({"flight_id"}))
+    )
+    registry.register(
+        schema=ToolSchema(tool_name="get_calendar", required_params=frozenset({"date"}))
+    )
+    registry.register(
+        schema=ToolSchema(
+            tool_name="add_calendar_event", required_params=frozenset({"title"})
+        )
     )
     return registry

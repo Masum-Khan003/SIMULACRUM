@@ -68,7 +68,7 @@ def test_missing_recall_across_many_seeds_and_task_types(schema_registry):
             total += 1
             if result.is_violation:
                 detected += 1
-    assert total == 100
+    assert total == len(TaskType) * 50
     assert detected == total, f"Recall: {detected}/{total}"
 
 
@@ -123,7 +123,7 @@ def test_unexpected_recall_across_many_seeds_and_task_types(schema_registry):
             total += 1
             if result.is_violation:
                 detected += 1
-    assert total == 100
+    assert total == len(TaskType) * 50
     assert detected == total, f"Recall: {detected}/{total}"
 
 

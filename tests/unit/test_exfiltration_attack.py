@@ -65,7 +65,7 @@ def test_frequency_recall_across_many_seeds():
             total += 1
             if result.is_flagged:
                 detected += 1
-    assert total == 60
+    assert total == len(TaskType) * 30
     assert detected == total, f"Recall: {detected}/{total}"
 
 
@@ -78,5 +78,5 @@ def test_content_recall_across_many_seeds():
             total += 1
             if result.is_flagged:
                 detected += 1
-    assert total == 60
+    assert total == len(TaskType) * 30
     assert detected == total, f"Recall: {detected}/{total}"

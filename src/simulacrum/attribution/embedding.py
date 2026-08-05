@@ -81,7 +81,17 @@ class FakeSemanticEmbedder:
     is used for anything user-facing.
     """
 
-    def __init__(self, *, dim: int = 64) -> None:
+    def __init__(self, *, dim: int = 256) -> None:
+        # dim=256 chosen empirically (see finding 005): dim=64/128 both
+        # produced real false-negative collisions (up to 2 of 12 task-
+        # type/attack-tool pairs, sim landing just above the 0.15
+        # threshold purely by chance bucket overlap). dim=256 and 512
+        # both tested clean (0/300) against the current vocabulary;
+        # 256 chosen as the minimum sufficient value rather than
+        # over-provisioning. This is an EMPIRICAL result against
+        # current text, not a mathematical guarantee against all
+        # future collisions — real MiniLM (backlogged) is the actual
+        # permanent fix, not higher dimensionality on a hash trick.
         self._dim = dim
 
     def embed(self, text: str) -> Vector:

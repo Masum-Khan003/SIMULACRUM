@@ -67,7 +67,7 @@ def test_recall_across_many_seeds_and_task_types():
                 total += 1
                 if result.is_escalated:
                     detected += 1
-    assert total == 200
+    assert total == len(TaskType) * len(ESCALATION_TOOLS) * 25
     assert detected == total, f"Recall: {detected}/{total}"
 
 

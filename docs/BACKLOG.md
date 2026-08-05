@@ -196,3 +196,17 @@ scheduled for later, not silently dropped.
   fresh-venv install (not the session'''s existing .venv) — 177/177
   passing using ONLY pyproject.toml-declared deps, per §22's
   fresh-clone-verification discipline.
+
+- ~~Only 2 task types~~ — RESOLVED. Added TaskType.CALENDAR_SCHEDULING
+  (get_calendar/add_calendar_event), also closing a real gap where no
+  stub tool exercised RiskTier.REVERSIBLE_WRITE. Surfaced two real
+  issues in the process: (1) missing schema registration for the new
+  tools (fixed immediately), (2) finding 005 — FakeSemanticEmbedder
+  bucket collisions causing real detection misses, root-caused to
+  insufficient hash dimensionality (fixed empirically, dim 64->256),
+  and (3) test_interceptor.py's attack-corpus assertions had baked in
+  an incorrect assumption (every task tool is IRREVERSIBLE_*) that a
+  REVERSIBLE_WRITE tool correctly violated — fixed to assert the real
+  invariant (flagged by >=1 detector) instead of a specific tier
+  outcome. Still only 3 of §08's target 5-8 task types — remains
+  open, smaller gap than before.

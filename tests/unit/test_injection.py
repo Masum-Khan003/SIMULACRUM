@@ -146,7 +146,7 @@ def test_divergence_recall_across_many_seeds_and_task_types(embedder):
                 total += 1
                 if result.is_divergent:
                     detected += 1
-    assert total == 200  # 2 task types x 4 tools x 25 seeds
+    assert total == len(TaskType) * len(ATTACK_TOOLS) * 25  # computed, not hardcoded — survives task_type count changes
     print(f"\nInjection detection recall: {detected}/{total} ({100*detected/total:.1f}%)")
     assert detected == total, f"Recall: {detected}/{total} — divergence detector missed some injections"
 
