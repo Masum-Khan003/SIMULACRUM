@@ -33,3 +33,12 @@ from simulacrum.attribution.boundary_classifier import (
 )
 
 __all__ += ["BoundaryClassifier", "EmbeddingBoundaryClassifier", "GroqBoundaryClassifier"]
+
+from simulacrum.attribution.goal_drift import (
+    DriftDetector,
+    DriftResult,
+    GroqDriftDetector,
+    NullDriftDetector,
+)
+
+__all__ += ["DriftDetector", "DriftResult", "GroqDriftDetector", "NullDriftDetector"]
