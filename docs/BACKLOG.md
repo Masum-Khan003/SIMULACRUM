@@ -72,3 +72,11 @@ scheduled for later, not silently dropped.
   param-vs-task divergence on every call; either flagging blocks.
   Proven end-to-end against normal corpus + both attack corpora
   (param_tampering, injection). See test_interceptor.py.
+
+- ~~Injection/escalation detectors proven but not wired into
+  interceptor~~ — RESOLVED. intercept_and_call() now runs schema,
+  divergence, AND permission escalation (against footprint including
+  the current call) on every call; any flagging blocks. Every call
+  logged to session store regardless of outcome. Proven end-to-end
+  against normal corpus + all three attack corpora. See
+  test_interceptor.py.
