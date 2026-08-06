@@ -21,10 +21,19 @@ from simulacrum.attribution import TaskRepresentation, call_topic_text, cosine_s
 # DISTRIBUTIONS — each embedder needs its OWN calibrated threshold.
 #
 # FAKE_DIVERGENCE_THRESHOLD: calibrated against FakeSemanticEmbedder
-# at dim=256 (finding 005's fix) — legitimate on-topic calls
-# measured similarity as low as ~0.18 in practice; kept at the
-# original 0.15 placeholder. NOTE: not yet reviewed for finding 008's
-# min-margin poisoning vulnerability — tracked in docs/BACKLOG.md.
+# at dim=256 (finding 005's fix). REVIEWED for finding 008's
+# poisoning vulnerability: this constant is NOT mechanically derived
+# via min()-margin from a live calibration corpus (unlike
+# MINILM_DIVERGENCE_THRESHOLD originally was) — it's a fixed value
+# that happens to sit below the real observed range. Verified against
+# 420 real FakeSemanticEmbedder samples (3 task types x 70 seeds x 2
+# calls): real on-topic min=0.1768, so 0.15 has genuine margin (0
+# false positives observed) and catches 240/240 real attack cases.
+# STANDING WARNING: if this constant is ever changed to be literally
+# DERIVED from a calibration corpus via min()-margin (rather than
+# staying a reviewed fixed value), it inherits finding 008's exact
+# poisoning vulnerability — use percentile-based derivation instead,
+# per MINILM_DIVERGENCE_THRESHOLD's precedent, if that change is ever made.
 #
 # MINILM_DIVERGENCE_THRESHOLD: RECALIBRATED (finding 008 fix) from
 # min-margin (0.20, vulnerable — a single poisoned calibration

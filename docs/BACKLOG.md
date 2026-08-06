@@ -422,3 +422,14 @@ scheduled for later, not silently dropped.
   poisoning resistance either). Lower priority since FakeSemanticEmbedder
   is a fallback/dev-only path, not the primary production embedder,
   but should be reviewed for completeness.
+
+- ~~FAKE_DIVERGENCE_THRESHOLD not reviewed for finding 008~~ —
+  RESOLVED. Confirmed NOT mechanically poisonable the same way (it'''s
+  a fixed constant, not literally min()-derived from a live corpus).
+  Verified with real evidence: 420 real FakeSemanticEmbedder samples,
+  0 false positives (real min=0.1768, threshold=0.15, genuine
+  margin), 240/240 real attack detection. Standing warning added in
+  code: if this constant is ever changed to be corpus-derived via
+  min()-margin in the future, it inherits finding 008'''s exact
+  vulnerability — use percentile derivation instead. This closes the
+  entire finding-007/008 arc with no remaining open threads.
