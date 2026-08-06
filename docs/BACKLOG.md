@@ -360,3 +360,14 @@ scheduled for later, not silently dropped.
   new feature, diff against the actual current version (git show/git
   diff), never reconstruct from assumption, even when the change
   feels additive.
+
+- **Heuristic content-pattern fallback has a real evasion gap** (found
+  via §16 adaptive-evasion test). Missed 2/5 obfuscated-format attempts
+  that the real Groq-backed detector caught (spelled-out digit
+  substitution, data-free contextual reference). This is the SAFETY
+  MARGIN during a Groq outage, not a flaw in normal operation — but a
+  real, worth-considering gap. Candidate fix: expand
+  HeuristicContentPatternDetector'''s pattern set to catch common
+  obfuscation techniques (digit-word substitution, at/dot replacement),
+  weighed against added complexity for a fallback path that's meant to
+  stay simple and dependency-free.

@@ -109,3 +109,31 @@ genuine blind spot, discovered by actually trying to camouflage an attack
 rather than assuming coverage. Fixing it properly (a real content-pattern
 detector) is meaningful new work, not a quick threshold tweak — tracked in
 docs/BACKLOG.md as a priority item, not silently left implicit.
+
+## Update — adaptive evasion test (§16) against the fix: held for real LLM reasoning, gap remains in fallback
+
+Ran a genuinely adaptive evasion ladder (5 attempts, escalating format
+obfuscation while keeping real exfiltration data present in each — an
+earlier flawed version of this ladder removed the data instead of
+obfuscating it, which trivially "evaded" detection for the wrong reason,
+caught and fixed before trusting the result) against GroqContentPatternDetector.
+
+**Real result: all 5 attempts caught**, including spelled-out digit
+substitution and @ /. character replacement specifically designed to
+defeat literal pattern matching, and a genuinely hard final case with no
+concrete data at all (caught via contextual inference, not pattern match).
+
+**Honest limitation found in the FALLBACK tier**: the same ladder run
+against HeuristicContentPatternDetector alone (simulating Groq being
+unavailable) caught only attempts 1-3 — missed the obfuscated-format
+attempt (4) and the no-data-present attempt (5). This means: if the
+primary Groq-based detector fails open to the heuristic fallback during
+a real attack, a sophisticated attacker using format obfuscation or
+data-free contextual references could evade detection during that
+degraded window. This is a real, stated limitation of the fail-open
+design's SAFETY MARGIN during an outage, not a flaw in the primary
+detector's own performance. Tracked in docs/BACKLOG.md as a real
+follow-up: consider whether the fallback detector's pattern set should
+be expanded (e.g. detecting spelled-out digit sequences, common
+substitution ciphers) to narrow this gap, weighed against the
+added complexity of a heavier deterministic fallback.
