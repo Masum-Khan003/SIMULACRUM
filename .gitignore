@@ -5,3 +5,7 @@ venv/
 *.egg-info/
 .pytest_cache/
 .env
+
+# AgentDojo benchmark output (generated, not source) — §08 Layer 4
+runs/
+runs_partial_148/

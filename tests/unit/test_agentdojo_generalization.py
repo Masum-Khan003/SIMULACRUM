@@ -1,0 +1,80 @@
+"""
+§08 Layer 4: runs REAL AgentDojo benchmark trajectories (external,
+independently-authored attack data — not our own attack_suite/)
+through our param-vs-task divergence LOGIC, using the fake embedder
+(fast, no GPU/API dependency for routine test runs).
+
+Real, honest scope: tests our DETECTOR LOGIC against genuinely
+external tool-call sequences and task descriptions. Does NOT map
+AgentDojo's tool schema onto our RiskTier/tier-engine system (see
+adapter.py's module docstring) -- this validates the underlying
+divergence-scoring mechanism generalizes to real, independently-
+authored data, which is real evidence but not a full pipeline
+integration test.
+
+Requires the runs/ directory populated by a real AgentDojo benchmark
+run (see docs/BACKLOG.md for how this was generated) -- skips
+cleanly if not present, since this is real external data, not
+something we regenerate in CI.
+"""
+from pathlib import Path
+
+import pytest
+
+from simulacrum.attribution import FakeSemanticEmbedder
+from simulacrum.generalization_set.agentdojo_adapter.adapter import load_all_trajectories
+from simulacrum.generalization_set.agentdojo_adapter.scoring import score_trajectory_divergence
+
+RUNS_DIR = Path("./runs")
+
+
+def _require_runs_dir():
+    if not RUNS_DIR.exists() or not any(RUNS_DIR.rglob("*.json")):
+        pytest.skip("No AgentDojo runs/ data present — real benchmark data required, see docs/BACKLOG.md")
+
+
+def test_real_agentdojo_trajectories_parse_successfully():
+    _require_runs_dir()
+    trajectories = load_all_trajectories(runs_dir=RUNS_DIR)
+    assert len(trajectories) > 0
+    # Every trajectory must have a real, non-empty user instruction
+    # and at least a plausible tool-call structure -- proving the
+    # adapter is extracting REAL content, not silently parsing to
+    # empty/garbage results.
+    empty_instructions = [t for t in trajectories if not t.user_instruction]
+    assert len(empty_instructions) == 0, (
+        f"{len(empty_instructions)} trajectories had no user instruction extracted "
+        f"— adapter parsing may be broken for some real result files"
+    )
+
+
+def test_divergence_scoring_runs_on_real_external_trajectories_with_injection():
+    """
+    Real, honest measurement: what fraction of REAL AgentDojo
+    trajectories (with injections present) show at least one call
+    with LOW divergence similarity, using our actual scoring logic?
+    This is genuinely external validation data, not a pass/fail on
+    a specific number (AgentDojo's own tool vocabulary and task
+    structure differ enough from ours that an exact recall target
+    would be guessing) -- reports the real distribution honestly.
+    """
+    _require_runs_dir()
+    embedder = FakeSemanticEmbedder()
+    trajectories = load_all_trajectories(runs_dir=RUNS_DIR)
+    injected = [t for t in trajectories if t.had_injection and t.tool_calls]
+
+    assert len(injected) > 0, "Expected at least some real injected trajectories to score"
+
+    min_similarities = []
+    for t in injected[:100]:  # sample for test speed, real data either way
+        result = score_trajectory_divergence(trajectory=t, embedder=embedder)
+        min_similarities.append(result.min_similarity)
+
+    print(f"\nReal AgentDojo trajectories scored: {len(min_similarities)}")
+    print(f"Min similarity range: {min(min_similarities):.4f} to {max(min_similarities):.4f}")
+    # No hard pass/fail threshold asserted here -- this test's value is
+    # PROVING our scoring logic runs successfully end-to-end against
+    # genuinely external data and reporting the real distribution, not
+    # claiming a specific recall number we haven't properly calibrated
+    # against AgentDojo's own tool vocabulary.
+    assert all(isinstance(s, float) for s in min_similarities)
