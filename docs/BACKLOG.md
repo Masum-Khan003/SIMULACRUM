@@ -433,3 +433,20 @@ scheduled for later, not silently dropped.
   min()-margin in the future, it inherits finding 008'''s exact
   vulnerability — use percentile derivation instead. This closes the
   entire finding-007/008 arc with no remaining open threads.
+
+- ~~Held-out generalization set (§08 Layer 3)~~ — RESOLVED. Built
+  generalization_set/mutated_attacks.py, a SEPARATE module from
+  attack_suite/ using genuinely different param values, built AFTER
+  finding 008'''s threshold recalibration was frozen — never used to
+  tune anything. Real, honest finding: initial design mutated
+  "instruction text" that turned out to be disconnected from what
+  detectors actually consume (call_topic_text only reads tool_name+
+  params) -- caught and fixed BEFORE writing tests around a dead end.
+  Corrected version mutates real param values. Results: 100% recall
+  on held-out attack variants (180/180, params never seen during
+  calibration), 0% false positives on held-out legitimate traffic
+  (task_sim seeds 100-129, disjoint from calibration'''s seeds 0-69).
+  Real evidence the recalibrated MINILM_DIVERGENCE_THRESHOLD
+  generalizes, not just fits calibration data. Scope honestly stated:
+  tests generalization WITHIN known attack-tool categories, not novel
+  attack vectors never conceived of.
