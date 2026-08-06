@@ -400,3 +400,25 @@ scheduled for later, not silently dropped.
   calibration. Should also review whether OTHER thresholds in this
   system (boundary, rate, content-size) use min/max-derived
   calibration with the same vulnerability.
+
+- ~~PRIORITY: finding 008 mitigation not adopted~~ — RESOLVED.
+  MINILM_DIVERGENCE_THRESHOLD recalibrated from min-margin (0.20,
+  vulnerable) to 1st-percentile (0.3030) against 420 REAL MiniLM
+  samples. Evidence-based percentile choice (not a default): swept
+  1/2/3/5/8th percentiles, 1st achieved full attack coverage (6/6)
+  at the lowest false-positive cost (0.71% vs 4.76% at 5th) while
+  still ~65x more poisoning-resistant than the old threshold.
+  INCIDENTAL discovery: the higher threshold also closed finding
+  007's camouflage-margin AND complete-blind-spot cases via
+  divergence alone (unplanned defense-in-depth, not redundant with
+  the content-pattern detector — see finding 007's update). Tests
+  updated to reflect real current behavior, not left stale.
+
+- **FAKE_DIVERGENCE_THRESHOLD not yet reviewed for finding 008's
+  vulnerability** (real remaining gap). Only MINILM_DIVERGENCE_THRESHOLD
+  was recalibrated. The fake-embedder threshold (0.15) is still
+  min-margin-style (a fixed placeholder, not literally derived via
+  min() from real data, but never checked against percentile-style
+  poisoning resistance either). Lower priority since FakeSemanticEmbedder
+  is a fallback/dev-only path, not the primary production embedder,
+  but should be reviewed for completeness.

@@ -18,30 +18,37 @@ from simulacrum.attribution import TaskRepresentation, call_topic_text, cosine_s
 # Two SEPARATE calibrated thresholds — NOT one shared constant.
 # FakeSemanticEmbedder (bag-of-words) and MiniLM (real semantic
 # embeddings) produce fundamentally different similarity
-# DISTRIBUTIONS, not just different absolute numbers on the same
-# scale. Forcing one threshold to serve both is a real bug (found
-# empirically: raising the shared threshold to fit MiniLM's real
-# calibration broke legitimate FakeSemanticEmbedder-based calls that
-# scored as low as 0.177 on-topic) — each embedder needs its OWN
-# calibrated threshold.
+# DISTRIBUTIONS — each embedder needs its OWN calibrated threshold.
 #
 # FAKE_DIVERGENCE_THRESHOLD: calibrated against FakeSemanticEmbedder
 # at dim=256 (finding 005's fix) — legitimate on-topic calls
 # measured similarity as low as ~0.18 in practice; kept at the
-# original 0.15 placeholder, which has real headroom below the
-# lowest observed on-topic score.
+# original 0.15 placeholder. NOTE: not yet reviewed for finding 008's
+# min-margin poisoning vulnerability — tracked in docs/BACKLOG.md.
 #
-# MINILM_DIVERGENCE_THRESHOLD: calibrated against REAL MiniLM
-# embeddings (§15): on-topic 0.30-0.71 (mean 0.51, n=120), off-topic
-# -0.03-0.15 (mean 0.04, n=240), zero overlap. 0.20 sits with real
-# margin on both sides of that measured gap.
+# MINILM_DIVERGENCE_THRESHOLD: RECALIBRATED (finding 008 fix) from
+# min-margin (0.20, vulnerable — a single poisoned calibration
+# sample fully degraded detection, 5/6->3/6 real attacks caught,
+# regardless of total sample size) to 1ST-PERCENTILE calibration
+# against 420 REAL MiniLM samples (3 task types x 70 seeds x 2 calls
+# each, from actual task_sim sessions): threshold=0.3030. Chosen
+# from a real evidence sweep across percentiles 1/2/3/5/8 — 1st
+# percentile was selected because it achieves the SAME attack
+# coverage (6/6 real attacks, including finding 007's camouflage
+# case) as every higher percentile tested, at the LOWEST false-
+# positive cost (0.71%, vs. 4.76% at 5th percentile) while still
+# being ~65x more poisoning-resistant than the old min-margin
+# threshold (0.0017 shift vs. 0.11 shift under identical single-
+# sample poisoning). Real tradeoff, not a default: false positives
+# land in the graduated FLAG/REQUIRE_APPROVAL tier (§13), not a
+# silent reject, so a 0.71% FP rate has a bounded, reviewable cost.
 #
 # check_param_divergence's default remains FAKE_DIVERGENCE_THRESHOLD
 # since FakeSemanticEmbedder is still this project's DEFAULT
 # embedder (real MiniLM is opt-in per docs/BACKLOG.md) — callers using
 # MiniLM must pass MINILM_DIVERGENCE_THRESHOLD explicitly.
 FAKE_DIVERGENCE_THRESHOLD = 0.15
-MINILM_DIVERGENCE_THRESHOLD = 0.20
+MINILM_DIVERGENCE_THRESHOLD = 0.3030
 DEFAULT_DIVERGENCE_THRESHOLD = FAKE_DIVERGENCE_THRESHOLD
 
 

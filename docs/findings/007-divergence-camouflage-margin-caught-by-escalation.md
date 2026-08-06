@@ -137,3 +137,30 @@ follow-up: consider whether the fallback detector's pattern set should
 be expanded (e.g. detecting spelled-out digit sequences, common
 substitution ciphers) to narrow this gap, weighed against the
 added complexity of a heavier deterministic fallback.
+
+## Update — the blind spot is now closed, incidentally, by finding 008's threshold recalibration
+
+Finding 008's poisoning-resistance fix (recalibrating MINILM_DIVERGENCE_THRESHOLD
+from min-margin 0.20 to 1st-percentile 0.3030, against 420 real MiniLM
+samples) was NOT targeted at this gap — it was fixing a completely different
+vulnerability. But the resulting higher threshold incidentally raised
+divergence's sensitivity enough that BOTH previously-problematic cases are
+now caught by divergence alone:
+  - The camouflage-margin case (set_forwarding_rule, similarity=0.2685):
+    now caught (0.2685 < 0.3030), previously missed (0.2685 > 0.20)
+  - The complete blind-spot case (reply_to_email, similarity=0.2285): now
+    caught (0.2285 < 0.3030), previously missed by ALL THREE original
+    detectors
+
+This does NOT mean the content-pattern detector (finding 007's dedicated
+fix) is now redundant. It means this specific gap is closed via TWO
+independent mechanisms instead of one — genuine defense-in-depth, not
+duplicated effort. The content-pattern detector still provides real,
+necessary coverage against camouflage phrased differently enough to score
+above even the new, stricter divergence threshold; permission escalation
+and exfiltration's crude length check remain structurally unable to catch
+this specific attack shape (in-baseline tool, short body) regardless of
+any threshold tuning.
+
+Tests updated to reflect this reality (test_gradual_escalation.py) rather
+than left asserting outdated behavior.
