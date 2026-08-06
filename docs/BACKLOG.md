@@ -371,3 +371,32 @@ scheduled for later, not silently dropped.
   obfuscation techniques (digit-word substitution, at/dot replacement),
   weighed against added complexity for a fallback path that's meant to
   stay simple and dependency-free.
+
+- **LLM-backed regression tests exhibit real, occasional non-
+  determinism** (observed directly this session: test_real_calibration_case
+  [retry_after_correction] failed once, passed on immediate re-run,
+  same input, same temperature=0). This is expected behavior for
+  hosted LLM APIs, not a bug in our code — but worth flagging
+  honestly: a single CI run failing on one of the Groq-backed
+  regression tests (goal_drift, boundary_classifier,
+  content_pattern, adaptive_evasion) should prompt a re-run before
+  treating it as a real regression, not an automatic red flag.
+  Consider: retry-once-on-failure for these specific tests, or
+  accepting occasional flakiness as a known property, documented
+  here rather than chased as a phantom bug.
+
+- **PRIORITY — finding 008: min-margin calibration vulnerable to
+  single-sample poisoning, percentile mitigation validated but NOT
+  adopted**. A single poisoned calibration sample fully degrades
+  detection (5/6 -> 3/6 real attacks, real measured data), REGARDLESS
+  of total sample size (confirmed at n=200, meeting
+  MIN_CALIBRATION_SAMPLES) -- structural flaw in min(), not a
+  volume-dependent attack. derive_threshold_percentile() (5th
+  percentile) validated as ~80x more poisoning-resistant at realistic
+  scale, real evidence not theory. NOT yet wired into production
+  thresholds (FAKE_DIVERGENCE_THRESHOLD, MINILM_DIVERGENCE_THRESHOLD
+  still min-margin-derived) -- real follow-up: full recalibration
+  pass using percentile methodology, same rigor as original MiniLM
+  calibration. Should also review whether OTHER thresholds in this
+  system (boundary, rate, content-size) use min/max-derived
+  calibration with the same vulnerability.
