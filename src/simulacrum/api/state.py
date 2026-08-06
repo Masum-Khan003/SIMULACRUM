@@ -89,6 +89,21 @@ class AppState:
         else:
             self.drift_detector = drift_fallback
 
+        # Finding 007 fix: content-pattern detector closes the real,
+        # complete blind spot (in-baseline tool + camouflaged short
+        # payload evaded all 5 prior detectors). REQUIRED, no
+        # implicit no-op default — same discipline as every other
+        # detector in this system.
+        from simulacrum.detectors import GroqContentPatternDetector, HeuristicContentPatternDetector
+
+        content_pattern_fallback = HeuristicContentPatternDetector()
+        if settings.groq_api_key:
+            self.content_pattern_detector = GroqContentPatternDetector(
+                api_key=settings.groq_api_key, fallback=content_pattern_fallback
+            )
+        else:
+            self.content_pattern_detector = content_pattern_fallback
+
         self._task_representations: dict[str, TaskRepresentation] = {}
         self._task_types: dict[str, TaskType] = {}
 

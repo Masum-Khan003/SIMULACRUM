@@ -17,7 +17,7 @@ from simulacrum.attack_suite import (
     generate_permission_escalation_session,
 )
 from simulacrum.attribution import FakeSemanticEmbedder, TaskRepresentation
-from simulacrum.detectors import build_default_schema_registry
+from simulacrum.detectors import HeuristicContentPatternDetector, build_default_schema_registry
 from simulacrum.interception import build_default_registry, intercept_and_call
 from simulacrum.interception.circuit_breaker import CircuitBreaker
 from simulacrum.risk_tiers import ToolRegistry
@@ -34,7 +34,9 @@ def registries():
     session_store = InMemorySessionStore()
     breaker = CircuitBreaker()
     approval_queue = ApprovalQueue()
-    return tier_registry, tool_registry, schema_registry, session_store, breaker, approval_queue
+    content_pattern_detector = HeuristicContentPatternDetector()
+    return (tier_registry, tool_registry, schema_registry, session_store, breaker,
+            approval_queue, content_pattern_detector)
 
 
 @pytest.fixture
@@ -49,7 +51,8 @@ def _task_for(task_type: TaskType, embedder) -> TaskRepresentation:
 
 
 def _call(registries, task, task_type, session_id, tool_name, params, turn_index=0):
-    tier_registry, tool_registry, schema_registry, session_store, breaker, approval_queue = registries
+    (tier_registry, tool_registry, schema_registry, session_store, breaker,
+     approval_queue, content_pattern_detector) = registries
     return intercept_and_call(
         tool_registry=tool_registry,
         tier_registry=tier_registry,
@@ -57,6 +60,7 @@ def _call(registries, task, task_type, session_id, tool_name, params, turn_index
         session_store=session_store,
         circuit_breaker=breaker,
         approval_queue=approval_queue,
+        content_pattern_detector=content_pattern_detector,
         task_representation=task,
         task_type=task_type,
         session_id=session_id,
@@ -124,7 +128,8 @@ def test_require_approval_call_does_not_execute_until_approved(registries, embed
     immediately. Only after a caller separately decides APPROVED and
     explicitly re-executes does the tool actually run.
     """
-    tier_registry, tool_registry, schema_registry, session_store, breaker, approval_queue = registries
+    (tier_registry, tool_registry, schema_registry, session_store, breaker,
+     approval_queue, content_pattern_detector) = registries
     task = _task_for(TaskType.FLIGHT_BOOKING, embedder)
     result = _call(registries, task, TaskType.FLIGHT_BOOKING, "s1", "book_flight", {})
     assert result.response_tier is ResponseTier.REQUIRE_APPROVAL
@@ -162,6 +167,7 @@ def test_open_circuit_fails_open_for_read_only_tool(embedder):
             tool_registry=tool_registry, tier_registry=tier_registry,
             schema_registry=None, session_store=session_store,
             circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
             task_representation=task, task_type=TaskType.INBOX_TRIAGE,
             session_id="s1", tool_name="read_inbox", params={"count": "5"}, turn_index=0,
         )
@@ -169,6 +175,7 @@ def test_open_circuit_fails_open_for_read_only_tool(embedder):
         tool_registry=tool_registry, tier_registry=tier_registry,
         schema_registry=schema_registry, session_store=session_store,
         circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
         task_representation=task, task_type=TaskType.INBOX_TRIAGE,
         session_id="s1", tool_name="read_inbox", params={"count": "5"}, turn_index=1,
     )
@@ -192,6 +199,7 @@ def test_open_circuit_fails_closed_for_irreversible_tool(embedder):
             tool_registry=tool_registry, tier_registry=tier_registry,
             schema_registry=None, session_store=session_store,
             circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
             task_representation=task, task_type=TaskType.FLIGHT_BOOKING,
             session_id="s1", tool_name="book_flight", params={"flight_id": "FL1"}, turn_index=0,
         )
@@ -199,6 +207,7 @@ def test_open_circuit_fails_closed_for_irreversible_tool(embedder):
         tool_registry=tool_registry, tier_registry=tier_registry,
         schema_registry=schema_registry, session_store=session_store,
         circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
         task_representation=task, task_type=TaskType.FLIGHT_BOOKING,
         session_id="s1", tool_name="book_flight", params={"flight_id": "FL1"}, turn_index=1,
     )
@@ -233,6 +242,7 @@ def test_full_normal_session_end_to_end_all_allow_or_flag():
                     tool_registry=tool_registry, tier_registry=tier_registry,
                     schema_registry=schema_registry, session_store=session_store,
                     circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
                     task_representation=task, task_type=task_type,
                     session_id=session.session_id, tool_name=call.tool_name,
                     params=call.params, turn_index=call.turn_index,
@@ -264,6 +274,7 @@ def test_full_param_tampering_session_attack_call_not_allowed():
                         tool_registry=tool_registry, tier_registry=tier_registry,
                         schema_registry=schema_registry, session_store=session_store,
                         circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
                         task_representation=task, task_type=task_type,
                         session_id=attack.session.session_id, tool_name=call.tool_name,
                         params=call.params, turn_index=call.turn_index,
@@ -316,6 +327,7 @@ def test_full_injection_session_attack_call_not_allowed():
                         tool_registry=tool_registry, tier_registry=tier_registry,
                         schema_registry=schema_registry, session_store=session_store,
                         circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
                         task_representation=task, task_type=task_type,
                         session_id=attack.session.session_id, tool_name=call.tool_name,
                         params=call.params, turn_index=call.turn_index,
@@ -368,6 +380,7 @@ def test_full_permission_escalation_session_attack_call_not_allowed():
                         tool_registry=tool_registry, tier_registry=tier_registry,
                         schema_registry=schema_registry, session_store=session_store,
                         circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
                         task_representation=task, task_type=task_type,
                         session_id=attack.session.session_id, tool_name=call.tool_name,
                         params=call.params, turn_index=call.turn_index,
@@ -394,6 +407,7 @@ def test_evasion_retry_not_allowed_through_real_interceptor():
         tool_registry=tool_registry, tier_registry=tier_registry,
         schema_registry=schema_registry, session_store=session_store,
         circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
         task_representation=task, task_type=TaskType.INBOX_TRIAGE,
         session_id="evasion-test", tool_name="send_payment", params={"amount": "5000"}, turn_index=0,
     )
@@ -403,6 +417,7 @@ def test_evasion_retry_not_allowed_through_real_interceptor():
         tool_registry=tool_registry, tier_registry=tier_registry,
         schema_registry=schema_registry, session_store=session_store,
         circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
         task_representation=task, task_type=TaskType.INBOX_TRIAGE,
         session_id="evasion-test", tool_name="send_payment", params={"amount": "4999"}, turn_index=1,
     )
@@ -429,6 +444,7 @@ def test_exfiltration_attack_not_allowed_through_real_interceptor():
             tool_registry=tool_registry, tier_registry=tier_registry,
             schema_registry=schema_registry, session_store=session_store,
             circuit_breaker=breaker, approval_queue=approval_queue,
+                        content_pattern_detector=HeuristicContentPatternDetector(),
             task_representation=task, task_type=TaskType.INBOX_TRIAGE,
             session_id=attack.session.session_id, tool_name=call.tool_name,
             params=call.params, turn_index=call.turn_index,
@@ -447,7 +463,8 @@ def test_require_approval_call_logged_as_pending_not_blocked(registries, embedde
     """
     from simulacrum.session import CallOutcome
 
-    tier_registry, tool_registry, schema_registry, session_store, breaker, approval_queue = registries
+    (tier_registry, tool_registry, schema_registry, session_store, breaker,
+     approval_queue, content_pattern_detector) = registries
     task = _task_for(TaskType.FLIGHT_BOOKING, embedder)
     result = _call(registries, task, TaskType.FLIGHT_BOOKING, "s1", "book_flight", {})
     assert result.response_tier is ResponseTier.REQUIRE_APPROVAL

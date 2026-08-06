@@ -191,6 +191,7 @@ def intercept(session_id: str, body: InterceptRequest) -> InterceptResponse:
             params=body.params,
             turn_index=body.turn_index,
             divergence_threshold=app_state.divergence_threshold,
+            content_pattern_detector=app_state.content_pattern_detector,
         )
     except UnregisteredToolError as e:
         # §07: an unregistered tool cannot be processed at all — this

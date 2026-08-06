@@ -321,3 +321,42 @@ scheduled for later, not silently dropped.
   explicitly hitting the endpoint, cached standing risk state) is
   separate, larger infrastructure — genuinely bigger than a mechanical
   follow-up, deserves its own design pass before building.
+
+- **PRIORITY — real, complete blind spot found via §16 adversarial
+  testing (finding 007 update)**: an in-baseline tool with a
+  semantically-camouflaged but short payload evades ALL THREE relevant
+  detectors (divergence: camouflage reads as task-relevant; escalation:
+  structurally can't see in-baseline misuse; exfiltration: content
+  check is crude character-length, doesn't catch short camouflaged
+  payloads). Real fix needed: a dedicated content-pattern/data-shape
+  detector (does this text resemble exported records/credentials/bulk
+  PII, semantically, not just \"is it long\") — genuine new detector
+  work, not a threshold tweak. This is the most consequential open
+  item in the backlog; found by deliberately trying to camouflage an
+  attack rather than assuming coverage.
+
+- ~~PRIORITY: real, complete blind spot (finding 007)~~ — RESOLVED.
+  Built GroqContentPatternDetector (real LLM content-reasoning,
+  primary) + HeuristicContentPatternDetector (regex/keyword fallback)
+  as a 6th detector, closing the gap where an in-baseline tool with
+  camouflaged content evaded divergence/escalation/exfiltration.
+  Calibrated against real cases: correctly catches the exact gap
+  case + a subtle contact-list exfiltration attempt with no obvious
+  keywords; correctly stays quiet on 3/4 benign cases (one false
+  positive on a legitimate password-reset notification, judged an
+  acceptable tradeoff given false-positive cost is much lower than
+  false-negative cost for this specific detector). Wired into
+  intercept_and_call() as a required (no-default) 6th detector.
+
+- **Real regression caught and fixed during finding-007 wiring**: 
+  rewriting interceptor.py from a mental model (not diffed against
+  the actual prior version) silently DROPPED all Prometheus metrics
+  instrumentation (record_action, record_detector_flag,
+  record_circuit_breaker_state/trip) that had been correctly wired in
+  a much earlier commit. Caught by test_observability.py'''s real-
+  value assertions — exactly the discipline §18 exists to enforce.
+  Root cause: reconstructing a file from memory instead of diffing
+  against git history. Lesson: when rewriting an existing file for a
+  new feature, diff against the actual current version (git show/git
+  diff), never reconstruct from assumption, even when the change
+  feels additive.

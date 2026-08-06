@@ -55,3 +55,17 @@ __all__ = [
     "ExfiltrationResult",
     "check_exfiltration",
 ]
+
+from simulacrum.detectors.content_pattern import (
+    ContentPatternDetector,
+    ContentPatternResult,
+    GroqContentPatternDetector,
+    HeuristicContentPatternDetector,
+)
+
+__all__ += [
+    "ContentPatternDetector",
+    "ContentPatternResult",
+    "GroqContentPatternDetector",
+    "HeuristicContentPatternDetector",
+]

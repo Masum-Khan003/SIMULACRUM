@@ -1,11 +1,23 @@
 """
 Interception layer (§03, §12, §13, §18): wraps the tool-execution
-function. Five detectors run through a circuit breaker as one scoring
-unit, feeding §13's tiered response. Prometheus metrics recorded for
-every decision (§18: action volume by tier, per-detector flags,
-breaker state/trips), verified against real usage in tests, not just
-"doesn't crash" (§18's own stated discipline, from a real Palimpsest
-empty-panel bug).
+function. SIX detectors run through a circuit breaker as one scoring
+unit: schema, param-vs-task divergence, permission escalation,
+loop-rate (retry-vs-evasion split), exfiltration, and content-pattern
+(finding 007's fix — closes the real, complete blind spot where an
+in-baseline tool with camouflaged content evaded all five prior
+detectors). Prometheus metrics recorded for every decision (§18),
+same instrumentation as the original observability-wiring commit
+(6951b2b) — restored here after being accidentally dropped during
+this file's content-pattern-detector rewrite and caught by
+test_observability.py's real-value assertions (exactly the discipline
+§18 exists to enforce).
+
+Design decisions, stated explicitly:
+  - Any flagging detector BLOCKS/escalates the call, regardless of
+    risk tier — §07/§13's fail-open/closed distinction governs
+    GUARDRAIL UNAVAILABILITY, not what to do with an actual finding.
+  - content_pattern_detector is REQUIRED (no default) — same "no
+    silent gaps" discipline as every other detector.
 """
 from __future__ import annotations
 
@@ -13,7 +25,8 @@ from dataclasses import dataclass
 
 from simulacrum.attribution import TaskRepresentation
 from simulacrum.detectors import (
-    FAKE_DIVERGENCE_THRESHOLD,
+    ContentPatternDetector,
+    ContentPatternResult,
     ExfiltrationResult,
     LoopRateResult,
     ParamDivergenceResult,
@@ -21,6 +34,7 @@ from simulacrum.detectors import (
     SchemaRegistry,
     SchemaViolation,
     UnregisteredSchemaError,
+    FAKE_DIVERGENCE_THRESHOLD,
     check_exfiltration,
     check_param_divergence,
     check_permission_escalation,
@@ -54,6 +68,7 @@ class ScoringBundle:
     escalation_result: PermissionEscalationResult
     loop_rate_result: LoopRateResult
     exfiltration_result: ExfiltrationResult
+    content_pattern_result: ContentPatternResult
 
     @property
     def flagged_detector_count(self) -> int:
@@ -68,10 +83,11 @@ class ScoringBundle:
             count += 1
         if self.exfiltration_result.is_flagged:
             count += 1
+        if self.content_pattern_result.is_suspicious:
+            count += 1
         return count
 
     def record_flag_metrics(self) -> None:
-        """Emits one DETECTOR_FLAGS_TOTAL increment per flagged detector."""
         if self.schema_violation is not None and self.schema_violation.is_violation:
             record_detector_flag(detector_name="schema")
         if self.divergence_result.is_divergent:
@@ -82,6 +98,8 @@ class ScoringBundle:
             record_detector_flag(detector_name="loop_rate")
         if self.exfiltration_result.is_flagged:
             record_detector_flag(detector_name="exfiltration")
+        if self.content_pattern_result.is_suspicious:
+            record_detector_flag(detector_name="content_pattern")
 
 
 @dataclass(frozen=True)
@@ -93,6 +111,7 @@ class InterceptionResult:
     escalation_result: PermissionEscalationResult | None
     loop_rate_result: LoopRateResult | None
     exfiltration_result: ExfiltrationResult | None
+    content_pattern_result: ContentPatternResult | None
     tool_result: dict[str, str] | None
     approval_request_id: str | None = None
     guardrail_bypassed: bool = False
@@ -113,6 +132,7 @@ def _run_scoring(
     tool_name: str,
     params: dict[str, str],
     divergence_threshold: float,
+    content_pattern_detector: ContentPatternDetector,
 ) -> ScoringBundle:
     schema_violation: SchemaViolation | None
     try:
@@ -136,12 +156,16 @@ def _run_scoring(
     exfiltration_result = check_exfiltration(
         session_store=session_store, session_id=session_id, tool_name=tool_name, params=params
     )
+    content_pattern_result = content_pattern_detector.check_content(
+        tool_name=tool_name, params=params
+    )
     return ScoringBundle(
         schema_violation=schema_violation,
         divergence_result=divergence_result,
         escalation_result=escalation_result,
         loop_rate_result=loop_rate_result,
         exfiltration_result=exfiltration_result,
+        content_pattern_result=content_pattern_result,
     )
 
 
@@ -160,6 +184,7 @@ def intercept_and_call(
     session_store: SessionStore,
     circuit_breaker: CircuitBreaker,
     approval_queue: ApprovalQueue,
+    content_pattern_detector: ContentPatternDetector,
     task_representation: TaskRepresentation,
     task_type: TaskType,
     session_id: str,
@@ -181,6 +206,7 @@ def intercept_and_call(
                 tool_name=tool_name,
                 params=params,
                 divergence_threshold=divergence_threshold,
+                content_pattern_detector=content_pattern_detector,
             )
         )
     except CircuitOpenError:
@@ -193,15 +219,10 @@ def intercept_and_call(
             tool_result = tool_registry.call(tool_name=tool_name, params=params)
             record_action(response_tier=ResponseTier.ALLOW.value)
             return InterceptionResult(
-                tool_name=tool_name,
-                response_tier=ResponseTier.ALLOW,
-                schema_violation=None,
-                divergence_result=None,
-                escalation_result=None,
-                loop_rate_result=None,
-                exfiltration_result=None,
-                tool_result=tool_result,
-                guardrail_bypassed=True,
+                tool_name=tool_name, response_tier=ResponseTier.ALLOW,
+                schema_violation=None, divergence_result=None, escalation_result=None,
+                loop_rate_result=None, exfiltration_result=None, content_pattern_result=None,
+                tool_result=tool_result, guardrail_bypassed=True,
                 guardrail_bypass_reason="circuit_open_fail_open",
             )
         else:
@@ -210,15 +231,10 @@ def intercept_and_call(
             )
             record_action(response_tier=ResponseTier.BLOCK.value)
             return InterceptionResult(
-                tool_name=tool_name,
-                response_tier=ResponseTier.BLOCK,
-                schema_violation=None,
-                divergence_result=None,
-                escalation_result=None,
-                loop_rate_result=None,
-                exfiltration_result=None,
-                tool_result=None,
-                guardrail_bypassed=True,
+                tool_name=tool_name, response_tier=ResponseTier.BLOCK,
+                schema_violation=None, divergence_result=None, escalation_result=None,
+                loop_rate_result=None, exfiltration_result=None, content_pattern_result=None,
+                tool_result=None, guardrail_bypassed=True,
                 guardrail_bypass_reason="circuit_open_fail_closed",
             )
 
@@ -241,15 +257,10 @@ def intercept_and_call(
     elif response_tier is ResponseTier.REQUIRE_APPROVAL:
         request = approval_queue.submit(session_id=session_id, tool_name=tool_name, params=params)
         approval_request_id = request.request_id
-        # PENDING_APPROVAL, not BLOCKED — held pending a human decision
-        # is a different situation from an active detector block, and
-        # loop_rate.py'''s evasion classification depends on this
-        # distinction (a retry-after-approval-hold is not the
-        # adversarial retry-after-block signature).
         session_store.append_attempt(
             session_id=session_id, call=call_record, outcome=CallOutcome.PENDING_APPROVAL
         )
-    else:  # ALLOW or FLAG
+    else:
         session_store.append_attempt(
             session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED
         )
@@ -263,6 +274,7 @@ def intercept_and_call(
         escalation_result=scoring.escalation_result,
         loop_rate_result=scoring.loop_rate_result,
         exfiltration_result=scoring.exfiltration_result,
+        content_pattern_result=scoring.content_pattern_result,
         tool_result=tool_result,
         approval_request_id=approval_request_id,
         guardrail_bypassed=False,

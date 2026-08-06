@@ -13,6 +13,7 @@ import pytest
 
 from simulacrum.attribution import FakeSemanticEmbedder, TaskRepresentation
 from simulacrum.detectors import build_default_schema_registry
+from simulacrum.detectors import HeuristicContentPatternDetector
 from simulacrum.interception import build_default_registry, intercept_and_call
 from simulacrum.interception.circuit_breaker import CircuitBreaker
 from simulacrum.observability import (
@@ -58,6 +59,7 @@ def test_allow_action_increments_actions_total(full_stack):
         tool_registry=tool_registry, tier_registry=tier_registry,
         schema_registry=schema_registry, session_store=session_store,
         circuit_breaker=breaker, approval_queue=approval_queue,
+        content_pattern_detector=HeuristicContentPatternDetector(),
         task_representation=task, task_type=TaskType.INBOX_TRIAGE,
         session_id="metrics-test-1", tool_name="read_inbox", params={"count": "5"}, turn_index=0,
     )
@@ -74,6 +76,7 @@ def test_blocked_call_increments_correct_detector_flag(full_stack):
         tool_registry=tool_registry, tier_registry=tier_registry,
         schema_registry=schema_registry, session_store=session_store,
         circuit_breaker=breaker, approval_queue=approval_queue,
+        content_pattern_detector=HeuristicContentPatternDetector(),
         task_representation=task, task_type=TaskType.FLIGHT_BOOKING,
         session_id="metrics-test-2", tool_name="book_flight", params={}, turn_index=0,
     )
@@ -90,6 +93,7 @@ def test_require_approval_action_recorded(full_stack):
         tool_registry=tool_registry, tier_registry=tier_registry,
         schema_registry=schema_registry, session_store=session_store,
         circuit_breaker=breaker, approval_queue=approval_queue,
+        content_pattern_detector=HeuristicContentPatternDetector(),
         task_representation=task, task_type=TaskType.FLIGHT_BOOKING,
         session_id="metrics-test-3", tool_name="book_flight", params={}, turn_index=0,
     )
