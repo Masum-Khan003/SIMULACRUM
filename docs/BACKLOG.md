@@ -450,3 +450,14 @@ scheduled for later, not silently dropped.
   generalizes, not just fits calibration data. Scope honestly stated:
   tests generalization WITHIN known attack-tool categories, not novel
   attack vectors never conceived of.
+
+- ~~retry_after_correction dismissed as generic flakiness (3x)~~ —
+  RESOLVED, finding 009. Actually MEASURED the real rate (10 runs:
+  3/10 drifted) instead of continuing to wave it off. Genuinely
+  borderline case, model'''s own reasoning shows real uncertainty.
+  Fixed with a statistically-grounded majority-vote test (10 runs,
+  threshold with real margin: P(false-alarm) <2%) instead of a
+  single unreliable call. Lesson worth restating: "known LLM
+  nondeterminism" is not a valid reason to stop investigating a
+  RECURRING failure — measure the actual rate before filing
+  something as expected noise, even for our own test infrastructure.
