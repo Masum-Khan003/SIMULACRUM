@@ -517,3 +517,17 @@ scheduled for later, not silently dropped.
   long sessions in favor of content-pattern detection. NONE attempted
   yet — this is the single most important, most rigorously verified
   open item in the whole project.
+
+- **Groq daily token quota exhausted mid-session** (external, not a
+  code issue). llama-3.3-70b-versatile hit its 100k TPD org-level
+  limit during this session'''s heavy real-API testing. Confirmed:
+  a new API key does NOT help (limit is per-organization, not per-
+  key). test_goal_drift.py and test_adaptive_evasion.py failures
+  during this window are expected fail-open behavior (falls back to
+  NullDriftDetector/HeuristicContentPatternDetector correctly), not
+  regressions -- confirmed by isolating and re-running everything
+  else clean (226/226). Resolves on daily reset or a paid tier
+  upgrade. Real lesson: heavy same-day real-API testing at this
+  volume WILL hit free-tier quotas -- worth budgeting API calls
+  across a session if free-tier limits matter, or accepting fail-open
+  degraded-mode testing as expected during quota exhaustion.

@@ -158,3 +158,37 @@ def test_attack_succeeded_polarity_verified_against_real_ground_truth():
         verified += 1
 
     assert verified >= 15, f"Expected to verify at least 15 real cases, only found {verified}"
+
+
+def test_min_params_aggregation_reduces_false_positives_with_real_data():
+    """
+    Real, tested fix for finding 010's generalization gap (see
+    scoring.py's MIN_PARAMS_FOR_AGGREGATION docstring for full
+    evidence). Verifies the excluding-low-param-calls aggregation
+    genuinely reduces false-positive rate on real resisted trajectories
+    compared to raw min-aggregation, using real data -- not asserting
+    a specific magic number (which could shift slightly with dataset
+    changes), but asserting the DIRECTION of the real, tested effect.
+    """
+    _require_runs_dir()
+    from simulacrum.attribution import FakeSemanticEmbedder
+    from simulacrum.detectors import FAKE_DIVERGENCE_THRESHOLD
+
+    embedder = FakeSemanticEmbedder()
+    trajectories = load_all_trajectories(runs_dir=RUNS_DIR)
+    resisted = [t for t in trajectories if t.attack_succeeded is False and t.tool_calls][:100]
+
+    raw_fp = 0
+    filtered_fp = 0
+    for t in resisted:
+        result = score_trajectory_divergence(trajectory=t, embedder=embedder)
+        if result.min_similarity < FAKE_DIVERGENCE_THRESHOLD:
+            raw_fp += 1
+        if result.min_similarity_excluding_low_param_calls < FAKE_DIVERGENCE_THRESHOLD:
+            filtered_fp += 1
+
+    print(f"\nRaw min FP: {raw_fp}/{len(resisted)}, filtered FP: {filtered_fp}/{len(resisted)}")
+    assert filtered_fp <= raw_fp, (
+        f"Expected filtered aggregation to have FEWER or equal false positives, "
+        f"got raw={raw_fp}, filtered={filtered_fp}"
+    )

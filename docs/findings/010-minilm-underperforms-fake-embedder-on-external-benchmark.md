@@ -224,3 +224,41 @@ plainly rather than glossing over, since the discipline that caught them
 plausible-looking number) is the same discipline this entire project has
 been built around, applied here to the project's own analysis code, not
 just the production system.
+
+## Real, tested fix found: excluding low-param calls from aggregation
+
+Tested a THIRD approach (after ruling out median and 25th-percentile
+aggregation): excluding calls with fewer than 1 real parameter from the
+trajectory-level minimum-similarity computation, rather than changing
+the aggregation statistic itself. Rationale: genuinely generic utility
+calls (checking today'''s date, etc.) take few/no arguments and score
+low similarity regardless of task content, dragging down min-aggregation
+without carrying real signal.
+
+**Real result, both embedders, full real dataset:**
+
+| Embedder | Metric | Baseline (raw min) | Filtered (min_params>=1) |
+|---|---|---|---|
+| MiniLM | Recall | 78.4% | 73.1% |
+| MiniLM | False positive rate | 74.7% | 59.7% |
+| Fake embedder | Recall | 90.0% | 84.1% |
+| Fake embedder | False positive rate | 85.2% | 76.2% |
+
+A genuine, consistent improvement across both embedders: FP rate drops
+substantially (MiniLM: -15 points, fake: -9 points) at a smaller recall
+cost (MiniLM: -5.3 points, fake: -5.9 points). This is NOT a silver
+bullet -- the FP rate remains high in absolute terms (59.7%/76.2%), and
+the underlying generalization gap is not closed. But it is the first
+tested fix that genuinely helps rather than trading one problem for
+another (unlike median, which destroyed recall).
+
+Implemented as `min_similarity_excluding_low_param_calls` in
+`agentdojo_adapter/scoring.py`, alongside (not replacing) the original
+`min_similarity` metric, with `MIN_PARAMS_FOR_AGGREGATION = 1` as a
+real, evidence-derived constant. NOT yet wired into PRODUCTION divergence
+scoring (`detectors/param_divergence.py`) -- this fix currently lives
+only in the AgentDojo-adapter scoring path used for external validation.
+Whether to port this aggregation change into the real production
+`check_param_divergence` detector (which currently scores single calls,
+not whole trajectories, so the concept would need adaptation) is real,
+separate follow-up work.
