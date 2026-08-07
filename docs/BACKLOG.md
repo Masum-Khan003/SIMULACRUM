@@ -64,12 +64,15 @@ entries (append-only history without removing superseded text).
   the aggregation change) or a human must explicitly accept the
   recall tradeoff, not silently inherit it.
 
-- **§10 trajectory sequence model — LLM reasoning used instead, not a
-  literal sequence model.** Goal-drift detection is real and working
-  (GroqDriftDetector), but §10 specifically describes a sequence model
-  over (tool, param-embedding, timestamp, ...) tuples. Worth a
-  deliberate decision: is LLM-based reasoning a legitimate substitute
-  for §10's literal spec, or should both exist? Not decided.
+- ~~§10 trajectory sequence model decision~~ — RESOLVED. Formal
+  decision record written (docs/decisions/001-llm-reasoning-vs-trajectory-sequence-model.md):
+  LLM-based reasoning (GroqDriftDetector) is accepted as the current
+  substitute for §10's literal spec, with explicit rationale (no real
+  training data exists, extensively tested, genuinely interpretable,
+  premature to build training infra now) AND explicit, real revisit
+  conditions (production data volume, cost/latency at scale, or a
+  regulatory determinism requirement) -- not a silent, permanent
+  substitution.
 
 ## Open — Real, Lower Priority
 
