@@ -82,13 +82,21 @@ entries (append-only history without removing superseded text).
   (percentile derivation, real similarity distributions measured) but
   no formal Brier-score/reliability-diagram deliverable exists.
 
-- **CI import-order check (finding 003) never built.** No automated
-  check catches circular imports that happen to work under the test
-  suite's actual import order (the exact bug finding 003 documented).
+- ~~CI import-order check (finding 003) never built~~ — RESOLVED.
+  tests/check_import_order.py imports every subpackage in multiple
+  real orderings (forward/reverse alphabetical), each in a fresh
+  subprocess. Confirmed clean on the real current codebase.
 
-- **CI needs a Redis service container.** test_redis_session_store.py
-  and test_api.py require live Redis — no .github/workflows exists yet
-  to provision this for CI (§22 itself is still backlog).
+- ~~CI needs a Redis service container~~ — RESOLVED. Real
+  .github/workflows/ci.yml built: Redis service container, import-
+  order check, full test suite, and a genuine fresh-venv
+  reproducibility check as dedicated CI steps. Structural tests
+  (test_ci_workflow.py) verify the workflow file itself against real
+  project requirements. One real leftover-env-var contamination bug
+  caught and fixed during verification (SIMULACRUM_USE_REAL_EMBEDDINGS
+  left exported from earlier session work, unrelated to the actual
+  code) -- confirms genuine CI (clean environment every run) avoids
+  this class of local-shell-state issue entirely.
 
 - **Per-detector circuit breakers** (deferred scope decision, stated
   directly in circuit_breaker.py's docstring). Current breaker wraps
