@@ -461,3 +461,18 @@ scheduled for later, not silently dropped.
   nondeterminism" is not a valid reason to stop investigating a
   RECURRING failure — measure the actual rate before filing
   something as expected noise, even for our own test infrastructure.
+
+- **PRIORITY — finding 010: real MiniLM underperforms fake embedder on
+  external (AgentDojo) benchmark data**. MiniLM: 75.3% recall
+  (113/150 sample) vs fake embedder: 88.2% recall (834/946 full
+  dataset) against genuinely external attack trajectories -- despite
+  MiniLM winning on every INTERNAL measurement. Root cause: finding
+  008'''s percentile calibration was derived from OUR OWN corpus,
+  doesn'''t fully transfer to AgentDojo'''s different task
+  distribution. Real, honest, un-buried finding. Follow-up options:
+  larger/more-diverse internal corpus (more task types per §08),
+  recalibrate incorporating external data (methodological question:
+  should external benchmark data ever inform production thresholds?),
+  or accept as a documented limitation. NOT resolved -- genuinely the
+  most important open item given it directly questions whether
+  internal calibration rigor generalizes.
