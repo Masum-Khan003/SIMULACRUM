@@ -262,3 +262,61 @@ Whether to port this aggregation change into the real production
 `check_param_divergence` detector (which currently scores single calls,
 not whole trajectories, so the concept would need adaptation) is real,
 separate follow-up work.
+
+## THIRD investigation — attempted production port, real negative result found and correctly reverted
+
+Following the §17 promotion-gate build, attempted a real, joint recalibration
+to port the tested "exclude low-param calls" fix into production
+`param_divergence.py`: raised `MINILM_DIVERGENCE_THRESHOLD` to 0.35
+(chosen via a real threshold sweep) combined with `MIN_PARAMS_FOR_DIVERGENCE`
+exemption logic. This configuration WAS formally approved by the §17
+champion/challenger promotion gate against real AgentDojo data:
+recall 78.4%->78.8% (matches/exceeds), false-positive rate
+74.7%->66.2% (genuine improvement).
+
+**This was ported into production code, then caught as a real regression
+by our own test suite** (`test_generalization_set.py`, §08 Layer 3):
+17 real false positives appeared on our OWN internal held-out
+generalization corpus, which had a previously-verified 0% false-positive
+guarantee at the original threshold. The exact false positives: legitimate
+`reply_to_email(email_id=..., body="Acknowledged, will follow up.")`
+calls -- short, generic, but genuinely legitimate replies our own
+task_sim corpus generates.
+
+### Real, complete joint verification across BOTH real datasets
+
+| Configuration | AgentDojo recall | AgentDojo FP | Internal FP (must be 0) |
+|---|---|---|---|
+| Original (threshold=0.3030, no exemption) | 78.4% | 74.7% | 0 |
+| Exemption only (threshold=0.3030) | 73.1% | 59.7% | 0 |
+| Exemption + raised threshold (0.35) | 78.8% | 66.2% | 17 |
+
+**Honest conclusion: NO tested configuration simultaneously satisfies
+both real constraints** -- matching/exceeding champion recall on
+AgentDojo AND preserving zero false positives on our own internal
+generalization set. The threshold sweep shows internal FP stays exactly
+0 through 0.3030 and climbs immediately above it -- 0.3030 is genuinely
+the maximum safe threshold for our internal guarantee. Raising it trades
+AgentDojo performance for internal-corpus regression; the exemption alone
+(without raising threshold) trades AgentDojo recall for AgentDojo FP
+improvement, itself failing the promotion gate.
+
+**Reverted production code to the original, safe, dual-verified
+configuration** (`FAKE_DIVERGENCE_THRESHOLD=0.15`,
+`MINILM_DIVERGENCE_THRESHOLD=0.3030`, no exemption logic active).
+
+### Why this is a genuinely valuable result, not a failure
+This is real, honest evidence that the tension identified throughout
+this whole finding-010 investigation -- internal calibration not fully
+transferring to external data -- is NOT resolvable by simple threshold/
+exemption tuning alone. It requires either a genuinely different
+detection mechanism for this class of gap (the content-pattern detector
+already covers much of it, per finding 007), a larger/more diverse
+internal corpus that would itself shift what "0 internal FP" means, or
+accepting the current, real, measured recall/FP numbers as an honest
+limitation rather than chasing a clean fix that doesn't exist at this
+level. The promotion gate, §08 Layer 3's held-out testing, and this
+project's "verify against real data, don't ship on a single metric"
+discipline all worked exactly as designed here -- catching a real
+regression before it reached anyone, at the cost of an afternoon's
+investigation rather than a production incident.
