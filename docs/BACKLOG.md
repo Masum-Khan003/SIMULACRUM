@@ -33,12 +33,19 @@ entries (append-only history without removing superseded text).
   mismatch (calls_since_last vs calls_since_last_check) against the
   existing tested drift_trigger.py function.
 
-- **Heuristic content-pattern fallback has a real evasion gap.** When
-  GroqContentPatternDetector is unavailable, HeuristicContentPatternDetector
-  misses obfuscated-format attacks (spelled-out digit substitution,
-  @ /. character replacement) that the LLM-based primary catches — 2/5
-  in the adaptive-evasion test. This is the safety margin during a
-  Groq outage specifically, not normal-operation behavior.
+- ~~Heuristic content-pattern fallback has a real evasion gap~~ —
+  PARTIALLY RESOLVED. Added real, tested regex patterns for word-
+  based @/. substitution and spelled-out digit sequences, verified
+  against §16'''s adaptive-evasion ladder: fallback now catches 4/5
+  attempts (up from 3/5) — genuinely closes the format-obfuscation
+  gap. ONE case remains, HONESTLY UNCLOSEABLE by a stateless
+  heuristic: data-free contextual references ("same fields as
+  always") carry no matchable content at all — closing this
+  structurally requires reasoning about conversation history, which
+  is exactly why GroqContentPatternDetector remains the PRIMARY
+  mechanism, not a nice-to-have. This residual gap is the real,
+  irreducible safety-margin cost of a Groq outage, now precisely
+  characterized rather than vaguely stated.
 
 - **§17 drift/re-baselining pipeline not built.** PSI-based statistical
   drift detection + champion/challenger promotion gate for the
