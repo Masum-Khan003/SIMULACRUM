@@ -531,3 +531,8 @@ scheduled for later, not silently dropped.
   volume WILL hit free-tier quotas -- worth budgeting API calls
   across a session if free-tier limits matter, or accepting fail-open
   degraded-mode testing as expected during quota exhaustion.
+
+- ~~Groq daily token quota exhausted mid-session~~ — RESOLVED. Plan
+  upgraded, verified with a real API call, both previously-blocked
+  test files (test_goal_drift.py, test_adaptive_evasion.py) now pass
+  10/10. Full suite back to clean baseline (237/237).
