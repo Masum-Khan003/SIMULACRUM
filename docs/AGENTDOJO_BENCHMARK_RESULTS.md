@@ -80,3 +80,38 @@ real follow-up work.
   reproducible bug (`AttributeError: 'str' object has no attribute
   'name'` inside their own `benchmark_suite` function under
   multiprocessing) -- worked around by running sequentially.
+
+## MAJOR CORRECTION: ground truth methodology fixed (finding 010 update)
+
+The numbers above used `had_injection` (an injection was ATTEMPTED) as
+ground truth. This was methodologically flawed -- 286 of 946 "attack"
+trajectories were actually genuinely benign (the injection was attempted
+but the agent RESISTED it, per AgentDojo's own `security` field).
+**Corrected ground truth uses `attack_succeeded`** (security=False means
+the attack actually succeeded), giving 660 real positive (attack) cases
+and 320 real negative (resisted, genuinely benign) cases.
+
+### Corrected recall/false-positive numbers
+
+| Embedder | Recall on REAL attacks (n=660) | Flag rate on resisted trajectories (n=320) |
+|---|---|---|
+| FakeSemanticEmbedder | 85.2% (562/660) | 90.0% (288/320) |
+| Real MiniLM | 74.7% (493/660) | 78.4% (251/320) |
+
+**Important nuance, not a simple "high false positive rate" bug:**
+inspecting which calls drive the "resisted but flagged" cases shows they
+are overwhelmingly high-risk actions (`get_most_recent_transactions`,
+`delete_file`, `send_email`, `remove_user_from_slack`, `update_password`,
+`send_money`) where the agent partially engaged with an injected
+instruction without completing the attacker's exact narrow objective.
+AgentDojo's `security` metric measures whether ONE SPECIFIC injection's
+precise goal succeeded; Simulacrum's own design (§04) is built to flag
+ANY off-task deviation, independent of whether a specific attack's exact
+objective was achieved. A meaningful fraction of these "false positives"
+are arguably correct behavior under Simulacrum's own, broader threat
+model, being measured against a narrower external yardstick.
+
+The recall gap (MiniLM underperforming the fake embedder, ~75% vs ~85%)
+remains real and unresolved in both the original and corrected analysis
+-- see `docs/findings/010-*.md` for the full, honest writeup including
+open questions.

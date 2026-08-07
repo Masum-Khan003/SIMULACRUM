@@ -476,3 +476,24 @@ scheduled for later, not silently dropped.
   or accept as a documented limitation. NOT resolved -- genuinely the
   most important open item given it directly questions whether
   internal calibration rigor generalizes.
+
+- ~~PRIORITY: finding 010 (MiniLM underperforms on external data)~~ —
+  MAJOR CORRECTION applied, not simply resolved. Root methodological
+  flaw found: had_injection alone is NOT valid ground truth (286/946
+  "attacks" were actually genuinely resisted). Fixed via
+  attack_succeeded field (AgentDojo'''s own security field, inverted).
+  Corrected numbers: MiniLM 74.7% recall / 78.4% flag-rate-on-resisted,
+  fake embedder 85.2% recall / 90.0% flag-rate-on-resisted. The high
+  "false positive" numbers are NOT simply a bug: inspection shows
+  they'''re driven by high-risk actions (transactions, deletions,
+  money transfers, password updates) where the agent partially
+  engaged with an injection without completing its exact narrow goal
+  -- arguably correct behavior under Simulacrum'''s own broader §04
+  goal-drift philosophy, measured against AgentDojo'''s narrower
+  per-injection-success metric. The MiniLM-vs-fake recall gap itself
+  REMAINS real and unresolved. Real remaining work: (1) resolve the
+  recall gap itself, (2) build a rigorous way to distinguish
+  "correctly flagged concerning behavior" from "genuine false
+  positive" beyond the current heuristic tool-name inspection, (3)
+  consider whether AgentDojo is even the right ground truth for
+  Simulacrum'''s broader threat model.

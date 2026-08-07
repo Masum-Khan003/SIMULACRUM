@@ -42,6 +42,19 @@ class ExtractedTrajectory:
     user_instruction: str
     tool_calls: tuple[ExtractedToolCall, ...]
     had_injection: bool
+    attack_succeeded: bool | None
+    """CRITICAL ground truth field, added after a real methodological
+    finding: had_injection=True only means an injection was ATTEMPTED,
+    NOT that it succeeded. AgentDojo'''s own 'security' field means the
+    OPPOSITE of what the name suggests at first glance: security=True
+    means the agent RESISTED (trajectory is genuinely benign, no real
+    attack occurred); security=False means the injection SUCCEEDED
+    (trajectory genuinely contains malicious agent behavior). This is
+    the correct ground truth for whether our detectors SHOULD flag a
+    trajectory -- NOT had_injection alone, which conflates attempted-
+    but-resisted attacks with genuinely successful ones. Stored here
+    as attack_succeeded = (security is False) for clarity, None if the
+    file has no security field (utility-only baseline runs)."""
 
 
 def _stringify_args(args: dict) -> dict[str, str]:
@@ -74,6 +87,9 @@ def parse_agentdojo_result_file(*, path: Path) -> ExtractedTrajectory:
                     )
                 )
 
+    security_field = data.get("security")
+    attack_succeeded = (security_field is False) if security_field is not None else None
+
     return ExtractedTrajectory(
         suite_name=data["suite_name"],
         user_task_id=data["user_task_id"],
@@ -82,6 +98,7 @@ def parse_agentdojo_result_file(*, path: Path) -> ExtractedTrajectory:
         user_instruction=user_instruction,
         tool_calls=tuple(tool_calls),
         had_injection=data.get("injection_task_id") is not None,
+        attack_succeeded=attack_succeeded,
     )
 
 

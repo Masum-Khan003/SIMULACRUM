@@ -78,3 +78,31 @@ def test_divergence_scoring_runs_on_real_external_trajectories_with_injection():
     # claiming a specific recall number we haven't properly calibrated
     # against AgentDojo's own tool vocabulary.
     assert all(isinstance(s, float) for s in min_similarities)
+
+
+def test_attack_succeeded_field_distinguishes_real_ground_truth():
+    """
+    Real methodological fix (finding 010's major update): had_injection
+    alone is NOT sufficient ground truth for "should be flagged" --
+    it only means an injection was ATTEMPTED. attack_succeeded (from
+    AgentDojo's own 'security' field, inverted: security=False means
+    the attack succeeded) is the correct ground truth. This test
+    proves the field is actually extracted and produces a real,
+    meaningful split of the dataset -- not always True or always None.
+    """
+    _require_runs_dir()
+    trajectories = load_all_trajectories(runs_dir=RUNS_DIR)
+    had_injection = [t for t in trajectories if t.had_injection]
+
+    succeeded = [t for t in had_injection if t.attack_succeeded is True]
+    resisted = [t for t in had_injection if t.attack_succeeded is False]
+    unknown = [t for t in had_injection if t.attack_succeeded is None]
+
+    assert len(succeeded) > 0, "Expected some real successful-attack trajectories"
+    assert len(resisted) > 0, "Expected some real resisted-attack trajectories"
+    # unknown should be rare/zero for real injection-task result files --
+    # if this grows large, the adapter may be failing to extract the
+    # security field for some real result file shape we haven't seen
+    assert len(unknown) < len(had_injection) * 0.05, (
+        f"Unexpectedly high unknown-ground-truth rate: {len(unknown)}/{len(had_injection)}"
+    )
