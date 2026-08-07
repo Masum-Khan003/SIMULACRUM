@@ -19,12 +19,19 @@ entries (append-only history without removing superseded text).
   (currently single-call, not trajectory-level — porting needs real
   design work, not a drop-in change). Single most important open item.
 
-- **Real async/background drift scheduling not built.** §03/§12 specify
-  drift checks should run "off-path, async, on a rolling interval."
-  What exists: a tested trigger-interval RULE (`should_check_drift()`)
-  and an ON-DEMAND synchronous HTTP endpoint
-  (`POST /sessions/{id}/check-drift`). No actual scheduler/background
-  job exists — a caller must explicitly hit the endpoint.
+- ~~Real async/background drift scheduling not built~~ — RESOLVED.
+  DriftScheduler runs a genuine asyncio background loop (started/
+  stopped via FastAPI lifespan events), tracking calls-since-last-check
+  per session and caching a standing decision (§12'''s own language).
+  Real, timing-correct end-to-end proof: real FastAPI lifespan startup,
+  real calls through a session, real time.sleep, background loop picks
+  it up UNATTENDED — nobody calls the on-demand endpoint. New
+  GET /sessions/{id}/drift-status retrieves the standing decision
+  without triggering a new check (distinct from the existing POST
+  .../check-drift, which still does synchronous on-demand checks).
+  One real bug caught and fixed along the way: a keyword-argument name
+  mismatch (calls_since_last vs calls_since_last_check) against the
+  existing tested drift_trigger.py function.
 
 - **Heuristic content-pattern fallback has a real evasion gap.** When
   GroqContentPatternDetector is unavailable, HeuristicContentPatternDetector

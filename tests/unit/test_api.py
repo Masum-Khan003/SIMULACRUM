@@ -126,3 +126,53 @@ def test_deciding_same_approval_twice_returns_409(client):
 def test_unknown_approval_request_returns_404(client):
     r = client.get("/approvals/nonexistent-request-id")
     assert r.status_code == 404
+
+
+def test_background_drift_scheduler_computes_standing_decision_unattended():
+    """
+    Real, end-to-end proof of §03/§12's async/background drift
+    scheduling: starts the REAL FastAPI lifespan (via TestClient's
+    context manager), runs real calls through a session, waits with
+    REAL time.sleep for the background asyncio loop to pick it up on
+    its OWN -- nobody explicitly triggers a drift check. Confirms
+    GET /sessions/{id}/drift-status reflects a standing decision
+    computed unattended, not by an on-demand call.
+    """
+    import time
+
+    from simulacrum.api.state import app_state
+
+    app_state.drift_scheduler.poll_interval_seconds = 0.3
+
+    with TestClient(app) as client:
+        r1 = client.post("/sessions", json={"task_type": "inbox_triage"})
+        session_id = r1.json()["session_id"]
+
+        # Before any calls, no standing decision should exist yet.
+        r_before = client.get(f"/sessions/{session_id}/drift-status")
+        assert r_before.json()["has_decision"] is False
+
+        calls = [
+            ("read_inbox", {"count": "10"}),
+            ("reply_to_email", {"email_id": "42", "body": "Acknowledged"}),
+            ("get_calendar", {"date": "2026-08-10"}),
+        ]
+        for tool_name, params in calls:
+            client.post(
+                f"/sessions/{session_id}/intercept", json={"tool_name": tool_name, "params": params}
+            )
+
+        time.sleep(1.5)  # real wait for the real background loop
+
+        r_after = client.get(f"/sessions/{session_id}/drift-status")
+        body = r_after.json()
+        assert body["has_decision"] is True, (
+            "Background scheduler should have computed a standing decision unattended"
+        )
+        assert body["checked_at_call_count"] == 3
+
+
+def test_drift_status_for_unknown_session_returns_404():
+    with TestClient(app) as client:
+        r = client.get("/sessions/nonexistent-session/drift-status")
+        assert r.status_code == 404

@@ -6,6 +6,7 @@ stack demonstrates genuine live traffic, not just static scrapes.
 from __future__ import annotations
 
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -19,6 +20,19 @@ from simulacrum.interception import intercept_and_call
 from simulacrum.risk_tiers import UnregisteredToolError
 from simulacrum.task_sim import TaskType
 from simulacrum.tier_engine import ApprovalAlreadyDecidedError, UnknownApprovalRequestError
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # §03/§12: starts the real async/background drift scheduler on
+    # app startup, stops it cleanly on shutdown -- closes the gap
+    # where drift checks only ever ran on-demand via an explicit
+    # HTTP call.
+    await app_state.drift_scheduler.start(
+        get_active_sessions=app_state.get_active_sessions_for_drift_check
+    )
+    yield
+    await app_state.drift_scheduler.stop()
 
 
 def _collect_flagged_reasons(result) -> tuple[str, ...]:
@@ -51,7 +65,7 @@ def _collect_flagged_reasons(result) -> tuple[str, ...]:
         )
     return tuple(reasons)
 
-app = FastAPI(title="Simulacrum", version="0.0.1")
+app = FastAPI(title="Simulacrum", version="0.0.1", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -166,6 +180,40 @@ def check_drift(session_id: str) -> DriftCheckResponse:
         call_history=call_descriptions,
     )
     return DriftCheckResponse(is_drifted=result.is_drifted, reasoning=result.reasoning)
+
+
+class StandingDriftResponse(BaseModel):
+    has_decision: bool
+    is_drifted: bool | None
+    reasoning: str | None
+    checked_at_call_count: int | None
+
+
+@app.get("/sessions/{session_id}/drift-status", response_model=StandingDriftResponse)
+def get_drift_status(session_id: str) -> StandingDriftResponse:
+    """
+    Retrieves the STANDING drift decision computed by the real
+    background scheduler (§03/§12) -- does NOT trigger a new check,
+    just returns whatever the background loop has already computed.
+    Distinct from POST /sessions/{id}/check-drift, which runs a
+    synchronous, on-demand check right now.
+    """
+    try:
+        app_state.get_task_representation(session_id=session_id)
+    except UnknownSessionError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+
+    decision = app_state.drift_scheduler.get_standing_decision(session_id=session_id)
+    if decision is None:
+        return StandingDriftResponse(
+            has_decision=False, is_drifted=None, reasoning=None, checked_at_call_count=None
+        )
+    return StandingDriftResponse(
+        has_decision=True,
+        is_drifted=decision.result.is_drifted,
+        reasoning=decision.result.reasoning,
+        checked_at_call_count=decision.checked_at_call_count,
+    )
 
 
 @app.post("/sessions/{session_id}/intercept", response_model=InterceptResponse)

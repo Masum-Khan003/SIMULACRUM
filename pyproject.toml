@@ -20,6 +20,7 @@ dev = [
     "pytest>=8.0",
     "httpx>=0.27",
     "httpx2",
+    "pytest-asyncio>=0.24",
 ]
 ml = [
     "sentence-transformers>=3.0",

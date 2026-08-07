@@ -89,6 +89,13 @@ class AppState:
         else:
             self.drift_detector = drift_fallback
 
+        # §03/§12: real async/background drift scheduler, closing the
+        # gap where only an on-demand endpoint existed. Started/stopped
+        # via FastAPI lifespan events in app.py, not constructed here.
+        from simulacrum.attribution.drift_scheduler import DriftScheduler
+
+        self.drift_scheduler = DriftScheduler(drift_detector=self.drift_detector)
+
         # Finding 007 fix: content-pattern detector closes the real,
         # complete blind spot (in-baseline tool + camouflaged short
         # payload evaded all 5 prior detectors). REQUIRED, no
@@ -129,6 +136,24 @@ class AppState:
             raise UnknownSessionError(
                 f"Session '{session_id}' not found — call POST /sessions first."
             ) from None
+
+    def get_active_sessions_for_drift_check(self):
+        """
+        Real data source for DriftScheduler'''s background loop:
+        every currently-tracked session'''s real task text and real
+        call history from the actual session store. Returns a list
+        (not a generator) since the scheduler iterates it once per
+        poll cycle and we want a stable snapshot, not a live cursor
+        into a dict that could mutate mid-iteration.
+        """
+        sessions = []
+        for session_id, task_repr in self._task_representations.items():
+            calls = self.session_store.get_calls(session_id=session_id)
+            call_descriptions = tuple(
+                f"{c.tool_name}({', '.join(f'{k}={v}' for k, v in c.params.items())})" for c in calls
+            )
+            sessions.append((session_id, task_repr.current_task_text, call_descriptions))
+        return sessions
 
 
 class UnknownSessionError(RuntimeError):
