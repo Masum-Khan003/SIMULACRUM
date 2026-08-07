@@ -497,3 +497,23 @@ scheduled for later, not silently dropped.
   positive" beyond the current heuristic tool-name inspection, (3)
   consider whether AgentDojo is even the right ground truth for
   Simulacrum'''s broader threat model.
+
+- **PRIORITY, SUPERSEDES prior finding-010 entries — verified-correct
+  numbers**: two rounds of real ground-truth correction were needed
+  (bad proxy, then inverted polarity — both caught via source-code
+  verification + empirical cross-check, not assumption). FINAL correct
+  numbers: MiniLM 78.4% recall / 74.7% FP rate on real attacks vs
+  resisted trajectories (n=320/660); fake embedder 90.0% / 85.2%. Real
+  diagnosis: dominant false-positive driver is get_current_day (generic
+  utility call), not predominantly high-risk actions as an earlier
+  (inverted-data) analysis wrongly concluded. Tested median/25th-
+  percentile aggregation as a fix — neither helps (median destroys
+  recall, since real attacks are often carried by 1-2 anomalous calls
+  diluted among many benign ones). Genuinely unresolved: real
+  generalization gap between our internal calibration and external,
+  longer, more complex trajectories. Candidate directions: exclude
+  known-generic tool calls from trajectory aggregation, build a larger/
+  more complex internal corpus, or reduce divergence'''s weight for
+  long sessions in favor of content-pattern detection. NONE attempted
+  yet — this is the single most important, most rigorously verified
+  open item in the whole project.

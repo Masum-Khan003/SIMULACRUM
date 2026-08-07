@@ -88,7 +88,18 @@ def parse_agentdojo_result_file(*, path: Path) -> ExtractedTrajectory:
                 )
 
     security_field = data.get("security")
-    attack_succeeded = (security_field is False) if security_field is not None else None
+    # VERIFIED against AgentDojo'''s own source (default_suites/v1_2/travel/
+    # injection_tasks.py InjectionTask2.security()) AND directly cross-
+    # checked against 19 real result files: security()==True means the
+    # injection'''s malicious goal WAS achieved (attack succeeded) --
+    # confirmed by literally checking whether the malicious calendar
+    # event existed in the trajectory and comparing against the stored
+    # security value, 19/19 matches. An EARLIER version of this file had
+    # this backwards (attack_succeeded = security is False) -- a real
+    # methodological error caught only by reading AgentDojo'''s own
+    # ground-truth source code and empirically verifying against real
+    # data, not by assumption.
+    attack_succeeded = (security_field is True) if security_field is not None else None
 
     return ExtractedTrajectory(
         suite_name=data["suite_name"],

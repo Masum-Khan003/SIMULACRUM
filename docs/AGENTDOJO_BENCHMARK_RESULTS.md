@@ -115,3 +115,26 @@ The recall gap (MiniLM underperforming the fake embedder, ~75% vs ~85%)
 remains real and unresolved in both the original and corrected analysis
 -- see `docs/findings/010-*.md` for the full, honest writeup including
 open questions.
+
+## SECOND CORRECTION: ground truth polarity was inverted in the prior correction
+
+The "MAJOR CORRECTION" section above used `security=False` as meaning
+"attack succeeded" -- this was VERIFIED WRONG by reading AgentDojo's own
+source code and cross-checking 19 real result files directly.
+**`security=True` actually means the attack succeeded** (100% correlation
+confirmed empirically). See `docs/findings/010-*.md` for the full,
+transparent correction history.
+
+### Final, verified-correct numbers
+
+| Embedder | Recall on REAL attacks (n=320) | False positive rate on resisted (n=660) |
+|---|---|---|
+| FakeSemanticEmbedder | 90.0% (288/320) | 85.2% (562/660) |
+| Real MiniLM | 78.4% (251/320) | 74.7% (493/660) |
+
+**Honest conclusion:** this represents a real, substantial generalization
+gap between our internally-calibrated divergence thresholds and genuinely
+external, more complex, longer real-world trajectories. Neither
+alternative aggregation (median, 25th percentile, both tested with real
+data) cleanly improves the recall/false-positive tradeoff. NOT resolved
+-- tracked as a priority open item in `docs/BACKLOG.md`.

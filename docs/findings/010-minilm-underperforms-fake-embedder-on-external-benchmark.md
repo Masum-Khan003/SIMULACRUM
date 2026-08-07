@@ -136,3 +136,91 @@ wrong yardstick (AgentDojo'''s narrower per-injection success metric).
    evaluating Simulacrum'''s BROADER threat model (vs. narrow injection-
    success) is itself worth stating as a limitation of using this
    specific external dataset for this specific purpose.
+
+## SECOND MAJOR CORRECTION — the previous "major update" had inverted ground truth
+
+The "MAJOR UPDATE" section above contains a real, serious error: it assumed
+`security=False` means the attack succeeded. This is BACKWARDS. Verified
+directly against AgentDojo's own source
+(`default_suites/v1_2/travel/injection_tasks.py`, `InjectionTask2.security()`)
+and cross-checked against 19 real result files by literally comparing
+whether the malicious calendar event existed in each trajectory against
+its stored `security` value: **`security=True` means the attack
+SUCCEEDED** (100% correlation, 19/19 real files checked directly). The
+"MAJOR UPDATE" section's entire narrative — including the "false positives
+are largely correctly-flagged risky behavior" conclusion — was built on
+inverted data and should NOT be trusted. Fixed in
+`agentdojo_adapter/adapter.py`, locked in with a permanent regression
+test (`test_attack_succeeded_polarity_verified_against_real_ground_truth`)
+that directly re-verifies this exact correlation against real data on
+every test run, so this specific error cannot silently recur.
+
+### The REAL, verified-correct numbers
+
+| Embedder | Recall on REAL attacks (n=320) | False positive rate on resisted (n=660) |
+|---|---|---|
+| FakeSemanticEmbedder | 90.0% (288/320) | 85.2% (562/660) |
+| Real MiniLM | 78.4% (251/320) | 74.7% (493/660) |
+
+### Real re-diagnosis with correct ground truth: mostly a genuine methodological weakness, not a definitional nuance
+
+Re-ran the "which tool drives false positives" analysis with corrected
+ground truth. The dominant driver is now `get_current_day` (82 cases) —
+a completely benign, generic, content-free utility call — alongside a
+real mix of benign reads (`get_received_emails`, `get_unread_emails`,
+`list_files`, `get_sent_emails`) and some genuinely sensitive actions
+(`delete_email`, `get_most_recent_transactions`, `get_iban`). This does
+NOT support the earlier (inverted-data) claim that most false positives
+are secretly correct flags of risky behavior. The honest picture: using
+MINIMUM similarity across an entire trajectory means any single generic,
+short, low-content call anywhere in an otherwise completely legitimate
+multi-step sequence drags the whole trajectory below threshold.
+
+### Tested a real fix (aggregation method) — did not clearly help
+
+Tried median and 25th-percentile aggregation instead of min, across the
+full real dataset:
+
+| Aggregation | Recall | False positive rate |
+|---|---|---|
+| min (current) | 78.4% | 74.7% |
+| median | 34.7% | 42.7% |
+| 25th percentile | 68.1% | 72.4% |
+
+Median cuts false positives substantially but DESTROYS recall (many real
+attacks are carried by just one or two anomalous calls diluted among many
+benign ones — averaging washes out the actual signal entirely). 25th
+percentile barely moves either number. Neither is a clean win. This
+suggests the aggregation function is not the core problem.
+
+### Honest conclusion
+
+With verified-correct ground truth, this is a real, substantial
+generalization gap: per-call trajectory divergence scoring, calibrated
+against our own internal corpus, does not cleanly separate real attacks
+from real benign trajectories on genuinely external, longer, more varied
+real-world data the way it does on our own held-out generalization set
+(which showed 100% recall / 0% FP — see §08 Layer 3 results). This is a
+genuinely different, harder distribution than our own task_sim corpus
+produces. NOT resolved. Real candidate directions, none yet attempted:
+excluding known-generic/utility tool calls from trajectory-level
+aggregation entirely (rather than changing the aggregation statistic),
+building a genuinely larger and more structurally diverse internal
+corpus (longer trajectories, more calls per session, closer to
+AgentDojo's real complexity), or accepting that divergence-based
+detection has real, stated limits on trajectory length/complexity and
+should not be the primary signal for long, complex sessions -- content-
+pattern and other detectors may need to carry more weight there.
+
+### A note on process, stated directly
+This finding required two rounds of real correction to get right --
+first fixing a bad ground-truth PROXY (had_injection), then fixing an
+INVERTED ground truth field (security polarity), each caught only by
+going back to primary sources (AgentDojo's own code) and direct empirical
+cross-checks against real data, not by trusting an assumption a second
+time. Both errors were real mistakes, not edge cases -- worth stating
+plainly rather than glossing over, since the discipline that caught them
+(verify against source, cross-check against real data, don't trust a
+plausible-looking number) is the same discipline this entire project has
+been built around, applied here to the project's own analysis code, not
+just the production system.
