@@ -80,10 +80,21 @@ entries (append-only history without removing superseded text).
   is one candidate direction for narrowing finding 010's gap, not yet
   attempted.
 
-- **Formal confidence calibration reporting (§05/§15) not built as a
-  standalone artifact.** Real calibration evidence exists throughout
-  (percentile derivation, real similarity distributions measured) but
-  no formal Brier-score/reliability-diagram deliverable exists.
+- ~~Formal confidence calibration reporting (§05/§15)~~ — RESOLVED.
+  Real Brier score + reliability diagram (docs/CALIBRATION_REPORT.md),
+  computed against real ground-truth-verified AgentDojo data (n=980).
+  Real, honest, sobering result: Brier score 0.2333, barely better
+  than the 0.25 coin-flip baseline -- formally confirms, via a
+  standard metric, what finding 010's investigation already found
+  empirically. Two additional real findings: the detector never
+  confidently predicts "attack" (zero samples above 0.6 predicted
+  probability across the entire real dataset -- a structural property
+  of min-aggregation, not a tuning issue), and a small-sample (n=3)
+  inverted-confidence anomaly in the lowest bin, reported honestly
+  rather than hidden. Explicitly scoped as single-detector, not
+  system-level (5 other independent detectors exist and structurally
+  catch cases divergence misses) -- a full system-level calibration
+  report remains real, valuable future work.
 
 - ~~CI import-order check (finding 003) never built~~ — RESOLVED.
   tests/check_import_order.py imports every subpackage in multiple
