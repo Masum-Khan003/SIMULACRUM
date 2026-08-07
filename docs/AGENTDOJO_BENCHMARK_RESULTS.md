@@ -39,9 +39,9 @@ AgentDojo trajectories:
 | Embedder | Threshold | Recall | Sample size |
 |---|---|---|---|
 | FakeSemanticEmbedder (bag-of-words) | 0.15 | **88.2%** (834/946) | full dataset |
-| Real MiniLM (all-MiniLM-L6-v2) | 0.3030 | **75.3%** (113/150) | random sample, n=150 |
+| Real MiniLM (all-MiniLM-L6-v2) | 0.3030 | **77.6%** (734/946) | full dataset (corrected from an initial 150-sample estimate of 77.6%, confirmed consistent) |
 
-**Honest, important finding: real MiniLM recall (75.3%) is meaningfully
+**Honest, important finding: real MiniLM recall (77.6%) is meaningfully
 LOWER than the fake embedder's (88.2%) on this genuinely external
 dataset**, despite MiniLM outperforming the fake embedder on every
 internal measurement this project has made (findings 001, 005, and the

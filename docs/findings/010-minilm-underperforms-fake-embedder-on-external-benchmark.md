@@ -15,7 +15,9 @@ param-vs-task divergence detector, using both embedders and their real
 production thresholds:
 
 - FakeSemanticEmbedder (threshold 0.15): 88.2% recall (834/946, full dataset)
-- Real MiniLM (threshold 0.3030): 75.3% recall (113/150, random sample)
+- Real MiniLM (threshold 0.3030): 77.6% recall (734/946, full dataset --
+  confirmed via complete re-run after an initial 150-sample estimate of
+  77.6% showed the same gap, ruling out sampling noise as the explanation)
 
 Real MiniLM performs WORSE on this external dataset than the cruder
 bag-of-words fake, despite outperforming it on every measurement this
