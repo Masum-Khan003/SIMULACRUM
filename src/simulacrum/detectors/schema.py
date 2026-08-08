@@ -102,4 +102,20 @@ def build_default_schema_registry() -> SchemaRegistry:
             tool_name="add_calendar_event", required_params=frozenset({"title"})
         )
     )
+    registry.register(
+        schema=ToolSchema(tool_name="list_files", required_params=frozenset({"query"}))
+    )
+    registry.register(
+        schema=ToolSchema(
+            tool_name="share_file", required_params=frozenset({"file_id", "recipient"})
+        )
+    )
+    registry.register(
+        schema=ToolSchema(tool_name="search_contacts", required_params=frozenset({"name"}))
+    )
+    registry.register(
+        schema=ToolSchema(
+            tool_name="update_contact", required_params=frozenset({"contact_id", "field"})
+        )
+    )
     return registry

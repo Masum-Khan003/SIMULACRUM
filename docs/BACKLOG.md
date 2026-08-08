@@ -76,9 +76,19 @@ entries (append-only history without removing superseded text).
 
 ## Open — Real, Lower Priority
 
-- **Only 3 of §08's target 5-8 task types.** More task-type diversity
-  is one candidate direction for narrowing finding 010's gap, not yet
-  attempted.
+- ~~Only 3 of §08's target 5-8 task types~~ — RESOLVED. Added
+  file_sharing (list_files/share_file) and contact_update
+  (search_contacts/update_contact), now 5 task types total, meeting
+  §08's minimum target. Registered consistently across all 5 files
+  that need it (task_sim, schema, fake_tools, call_text, task_text) --
+  same discipline as the calendar_scheduling addition earlier this
+  session. Real calibration work required (not just plumbing): the
+  first-attempt call-topic template for list_files scored 0.2701 under
+  real MiniLM, below the 0.303 threshold -- fixed via real wording-
+  variant comparison (tested 5 phrasings, picked the one with genuine
+  margin: 0.4123). Two stale hardcoded test totals (from the earlier
+  3-task-type era) caught and fixed with computed formulas, same
+  pattern as before.
 
 - ~~Formal confidence calibration reporting (§05/§15)~~ — RESOLVED.
   Real Brier score + reliability diagram (docs/CALIBRATION_REPORT.md),

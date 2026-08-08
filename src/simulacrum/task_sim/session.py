@@ -20,6 +20,8 @@ class TaskType(Enum):
     INBOX_TRIAGE = "inbox_triage"
     FLIGHT_BOOKING = "flight_booking"
     CALENDAR_SCHEDULING = "calendar_scheduling"
+    FILE_SHARING = "file_sharing"
+    CONTACT_UPDATE = "contact_update"
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,26 @@ def _calendar_add_params(rng: random.Random) -> dict[str, str]:
     return {"title": rng.choice(titles)}
 
 
+def _file_list_params(rng: random.Random) -> dict[str, str]:
+    queries = ["quarterly report", "project proposal", "meeting notes", "budget spreadsheet"]
+    return {"query": rng.choice(queries)}
+
+
+def _file_share_params(rng: random.Random) -> dict[str, str]:
+    recipients = ["colleague@company.com", "manager@company.com", "team-lead@company.com"]
+    return {"file_id": f"FILE{rng.randint(1000, 9999)}", "recipient": rng.choice(recipients)}
+
+
+def _contact_search_params(rng: random.Random) -> dict[str, str]:
+    names = ["Smith", "Johnson", "Williams", "Brown"]
+    return {"name": rng.choice(names)}
+
+
+def _contact_update_params(rng: random.Random) -> dict[str, str]:
+    fields = ["phone", "email", "title", "department"]
+    return {"contact_id": f"CONTACT{rng.randint(100, 999)}", "field": rng.choice(fields)}
+
+
 _TEMPLATES: dict[TaskType, TaskTemplate] = {
     TaskType.INBOX_TRIAGE: TaskTemplate(
         task_type=TaskType.INBOX_TRIAGE,
@@ -94,6 +116,20 @@ _TEMPLATES: dict[TaskType, TaskTemplate] = {
         steps=(
             ("get_calendar", _calendar_get_params),
             ("add_calendar_event", _calendar_add_params),
+        ),
+    ),
+    TaskType.FILE_SHARING: TaskTemplate(
+        task_type=TaskType.FILE_SHARING,
+        steps=(
+            ("list_files", _file_list_params),
+            ("share_file", _file_share_params),
+        ),
+    ),
+    TaskType.CONTACT_UPDATE: TaskTemplate(
+        task_type=TaskType.CONTACT_UPDATE,
+        steps=(
+            ("search_contacts", _contact_search_params),
+            ("update_contact", _contact_update_params),
         ),
     ),
 }

@@ -55,5 +55,5 @@ def test_fake_threshold_catches_all_real_injection_attacks():
                 total += 1
                 if result.is_divergent:
                     detected += 1
-    assert total == 240
+    assert total == len(TaskType) * len(ATTACK_TOOLS) * 20
     assert detected == total, f"Recall: {detected}/{total}"

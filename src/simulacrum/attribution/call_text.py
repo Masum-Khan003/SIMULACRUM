@@ -13,6 +13,14 @@ _CALL_TEMPLATES: dict[str, str] = {
     "book_flight": "book flight {flight_id}",
     "get_calendar": "check calendar for date {date}",
     "add_calendar_event": "add calendar event {title}",
+    # File-sharing / contact-update task types (toward §08's 5-8
+    # target) -- dedicated templates sharing real vocabulary with
+    # their task's initiating text (finding 005's lesson: fallback
+    # generic text is more collision-prone under the fake embedder).
+    "list_files": "find the document {query} to share",
+    "share_file": "share document file {file_id} with team recipient {recipient}",
+    "search_contacts": "look up find contact information name {name}",
+    "update_contact": "update contact information {field} for {contact_id}",
     # Attack-target tools (§04/§07) — dedicated templates so none of
     # these fall back to the generic "tool_name key value..." format,
     # which is more collision-prone under the fake embedder (finding

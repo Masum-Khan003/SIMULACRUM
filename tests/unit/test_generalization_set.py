@@ -56,7 +56,7 @@ def test_recalibrated_threshold_generalizes_to_held_out_attack_variants(embedder
                 total += 1
                 if result.is_divergent:
                     detected += 1
-    assert total == 180
+    assert total == len(TaskType) * len(_PARAM_VARIANTS) * 15
     assert detected == total, (
         f"Generalization recall degraded on held-out attack variants: {detected}/{total}. "
         f"This could mean the threshold overfit to attack_suite's specific param values."
