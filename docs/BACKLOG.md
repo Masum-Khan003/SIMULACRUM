@@ -133,8 +133,18 @@ entries (append-only history without removing superseded text).
   if a future ops/security-approver role introduces genuinely separate
   concurrent queues.
 
-- **Feature-schema hash/versioning (§11, Palimpsest bug #2 guard) not
-  built.** No calibration-manifest format exists yet to hash against.
+- ~~Feature-schema hash/versioning (§11, Palimpsest bug #2 guard)~~
+  — RESOLVED. Real calibration manifest (evaluation/calibration_manifest.py)
+  built from THIS project's actual documented findings (005/008/010),
+  not placeholder data -- records threshold values, calibration
+  method, sample size, and real measured recall/FP per detector.
+  verify_current_config() checks the manifest against the ACTUAL
+  live-imported threshold constants, catching drift between
+  documented calibration and running configuration (exactly Palimpsest
+  bug #2's failure mode). Proven both directions: zero drift against
+  our real current config, AND correctly detects a simulated mismatch.
+  Runs automatically in CI via the existing pytest step -- real,
+  live enforcement, not a standalone script nobody runs.
 
 - ~~HF_TOKEN not configured~~ — RESOLVED. Added to Settings
   (same optional-config pattern as GROQ_API_KEY), threaded through
