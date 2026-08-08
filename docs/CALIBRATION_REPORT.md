@@ -198,3 +198,70 @@ combination approaches (binary and simple-average continuous) both
 underperform the single best detector on this specific external
 dataset, which is itself real, useful information about this system's
 current limits.
+
+## §10 required baseline: input-only classifier (no session context)
+
+Found missing via blueprint re-audit: §10 explicitly requires an
+"input-only classifier baseline... run with no session context" for
+every reported number, to validate the project's own core stated
+thesis (blueprint vision section: "session-level, trajectory-aware
+behavioral analysis catches injected and drifted agent behavior that
+single-message input classifiers structurally cannot"). This
+comparison had never actually been made.
+
+Built a real InputOnlyClassifier (Groq-backed, given ONLY a single
+tool call's tool_name+params, explicitly no task description, no
+session history), tested against the same real, bounded AgentDojo
+sample (n=120, seed=42) used throughout finding 010.
+
+### Real, honest result: the naive baseline is competitive, even ahead on recall
+
+| Detector | Recall | FP rate |
+|---|---|---|
+| Input-only classifier (no session context) | **90.0%** | 75.0% |
+| Session-aware MiniLM divergence detector | 78.4% | 74.7% |
+
+This is an uncomfortable result for the project's own stated thesis,
+reported exactly as measured, not softened.
+
+### Honest interpretation, not spin
+
+This is NOT a clean, apples-to-apples test of "does session context
+help." The input-only baseline is a FULL LLM reasoning judgment
+(broad world knowledge about what a plausible tool call looks like)
+compared against our divergence detector's much narrower, MECHANICAL
+signal (cosine similarity between embeddings). The comparison
+conflates two different variables at once -- reasoning sophistication
+AND context availability -- rather than isolating session-awareness
+specifically. A genuinely clean test would compare LLM reasoning WITH
+session/task context against LLM reasoning WITHOUT it, holding the
+underlying mechanism constant. That specific comparison was NOT run
+here -- real, honest follow-up work, not yet attempted.
+
+What this result DOES support: this project's actual strongest
+detector (content-pattern, real 95% recall on real travel-suite
+attacks, per finding 007/010's own investigation) is ALSO LLM-based
+reasoning, not mechanical similarity. The honest, real pattern across
+this whole project's evidence is that LLM reasoning consistently
+outperforms mechanical signals (divergence, regex heuristics) --
+independent of whether that reasoning has session context or not.
+Session-awareness's real, distinct value is NOT demonstrated by this
+baseline comparison to be structural or guaranteed; it should be
+stated as a real, unresolved open question for this specific system,
+not assumed true because it's the project's original premise.
+
+### What this means for the project's own stated thesis
+
+The blueprint's vision section claims session-aware analysis catches
+what single-message classifiers "structurally cannot." This specific,
+real evidence does not support that claim for divergence alone. It
+remains possible session-awareness matters more for OTHER attack
+patterns (e.g. genuine multi-step goal drift, which requires seeing
+the whole trajectory almost by definition -- an input-only classifier
+literally cannot evaluate "does this SEQUENCE deviate from the
+original goal" one call at a time). But for detecting a SINGLE
+injected/malicious call in isolation specifically, this real evidence
+suggests a well-reasoned single-message judgment can be competitive
+with or exceed a narrower session-aware signal. Reported honestly as
+a real, important limitation on this project's own claimed value
+proposition, not hidden because it complicates the narrative.

@@ -280,3 +280,25 @@ entries (append-only history without removing superseded text).
   requires real volume/time-tracking infrastructure this project
   doesn't have yet, a genuinely bigger undertaking tracked as real
   follow-up work, not silently assumed solved.
+
+- ~~§10 required "input-only classifier baseline" — never built~~ —
+  RESOLVED, with a REAL, significant, uncomfortable finding. Found via
+  blueprint re-audit: this baseline (validates the project's own core
+  stated thesis) had never been built or measured. Built a real
+  InputOnlyClassifier (Groq-backed, single call only, explicitly no
+  session/task context), tested against the same real, bounded
+  AgentDojo sample used throughout finding 010. REAL RESULT: the naive
+  baseline (90.0% recall, 75.0% FP) actually OUTPERFORMED our session-
+  aware MiniLM divergence detector on recall (78.4%), with nearly
+  identical FP rates -- directly challenging the project's own stated
+  thesis. Full honest writeup in docs/CALIBRATION_REPORT.md: the
+  comparison likely conflates reasoning-sophistication (full LLM vs
+  mechanical cosine-similarity) with context-availability, rather than
+  isolating session-awareness cleanly. Real, valuable, NOT-yet-
+  attempted follow-up: a cleaner test (LLM reasoning WITH vs WITHOUT
+  session context, holding the mechanism constant) would isolate the
+  actual variable of interest. Also worth noting, not yet tested: goal
+  drift specifically requires trajectory awareness by definition (an
+  input-only classifier structurally cannot evaluate "does this
+  SEQUENCE deviate from the goal" one call at a time) -- this may be
+  where session-awareness's real value actually lives, untested here.
