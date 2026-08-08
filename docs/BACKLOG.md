@@ -9,15 +9,36 @@ entries (append-only history without removing superseded text).
 ## Open — Priority
 
 - **Finding 010: param-vs-task divergence generalization gap on real
-  external data.** Verified-correct numbers (after 2 rounds of
-  ground-truth correction, both documented in docs/findings/010-*.md):
-  MiniLM 78.4% recall / 74.7% FP rate on real AgentDojo attacks vs
-  resisted trajectories; fake embedder 90.0% / 85.2%. A real, tested
-  partial fix exists (exclude low-param calls from trajectory
-  aggregation: MiniLM FP 74.7%->59.7%, fake FP 85.2%->76.2%) but is
-  NOT ported to the production `check_param_divergence` detector
-  (currently single-call, not trajectory-level — porting needs real
-  design work, not a drop-in change). Single most important open item.
+  external data.** STILL OPEN, single most important item. Verified-
+  correct numbers (after 2 rounds of ground-truth correction, both
+  documented in docs/findings/010-*.md): MiniLM 78.4% recall / 74.7%
+  FP rate on real AgentDojo attacks vs resisted trajectories; fake
+  embedder 90.0% / 85.2%. Three tested fixes have each failed or hit
+  a hard wall: median/25th-percentile aggregation (destroys recall or
+  barely moves either number); low-param-call exclusion (real,
+  consistent FP improvement -- MiniLM FP 74.7%->59.7% -- but a
+  genuine recall cost, 78.4%->73.1%, and NOT ported to production);
+  threshold+exemption joint recalibration (formally §17-gate-approved
+  on AgentDojo, but caused 17 real false positives on our own
+  internal held-out generalization set's previously-verified 0% FP
+  guarantee -- reverted). No tested configuration simultaneously
+  matches/exceeds AgentDojo recall AND preserves internal FP=0.
+  ~~Whether content-pattern can carry more weight for divergence's
+  blind spots~~ — MEASURED (finding 013, follow-up analysis): content-
+  pattern rescues 54.5% (6/11) of real attacks divergence misses, at
+  a real, non-trivial cost of 35.7% (5/14) new false positives on
+  cases divergence already correctly clears. Real evidence, not a
+  clean win -- consistent with every other detector-combination
+  attempt this project has measured (finding 011's Baseline A,
+  CALIBRATION_REPORT's continuous-confidence combination): leaning on
+  content-pattern trades real recall for real, comparable FP cost,
+  every time. Two real candidate directions remain genuinely
+  unattempted: (1) a larger, more structurally diverse internal
+  calibration corpus -- the biggest undertaking, still untried; (2)
+  formally documenting current numbers as an accepted, stated
+  limitation rather than continuing to search for a combination rule
+  -- increasingly the pattern each new measurement supports, not yet
+  formally decided.
 
 - ~~Real async/background drift scheduling not built~~ — RESOLVED.
   DriftScheduler runs a genuine asyncio background loop (started/
