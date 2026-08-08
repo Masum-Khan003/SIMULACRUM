@@ -322,15 +322,21 @@ entries (append-only history without removing superseded text).
   positive result; §10 decision 001 (LLM reasoning accepted as the
   trajectory-model substitute) stands, no revisit triggered. Full
   writeup: docs/findings/011-explicit-detectors-only-baseline.md.
-- **"Earliest-anomaly-onset baseline"** — genuine, honest AMBIGUITY
-  in the source blueprint itself: it references "the cheap heuristic
-  identified during this project's own scoping review," but no such
-  heuristic is specified anywhere in the actual document (verified
-  via direct text search — this exact phrase appears exactly once,
-  with no further detail). This cannot be built with confidence
-  without guessing at unstated intent. A reasonable interpretation
-  (untested, not assumed correct): measuring whether a trajectory's
-  first-flagged-call turn-index alone is a meaningful predictor,
-  without needing full trajectory aggregation. Flagged honestly as a
-  real spec gap, not silently dropped or guessed into false
-  confidence. Still open, unchanged.
+- ~~"Earliest-anomaly-onset baseline"~~ — RESOLVED, real HONEST
+  NEGATIVE RESULT. Built the one reasonable, explicitly-stated
+  interpretation (first-flagged-call turn-index alone, no full-
+  trajectory aggregation) despite the source blueprint's own genuine
+  ambiguity (verified via direct text search -- the phrase appears
+  exactly once, no further spec exists). Real discipline note: an
+  initial n=10 smoke test showed an apparently strong effect (mean
+  onset-fraction diff +0.407, attacks flagged much later than FPs) --
+  scaling to the full real n=120 sample (same corpus as finding 011)
+  showed this was small-sample noise: the effect nearly vanished
+  (+0.028), medians identical (1.0) for both groups. Honest
+  conclusion: onset position alone carries no meaningful
+  discriminative signal between real attacks and false positives --
+  both groups get flagged at essentially the same point in a
+  trajectory. Full writeup: docs/findings/012-earliest-onset-baseline-no-signal.md.
+  §10's three required baselines (input-only, explicit-detectors-only,
+  earliest-anomaly-onset) are now ALL built and measured -- §10 is
+  honestly, fully closed.
