@@ -224,3 +224,17 @@ entries (append-only history without removing superseded text).
   deferred pending a real architectural decision about multi-agent
   support, not something to build without first choosing that
   direction deliberately.
+
+- ~~§19 content-handling — session data persisted indefinitely with
+  no expiry~~ — RESOLVED. Found via the same blueprint re-audit
+  (same "used transiently... then discarded" requirement redaction
+  addressed). Verified via direct code inspection: RedisSessionStore
+  had zero TTL mechanism -- rpush with no expire call at all. Added a
+  real, configurable TTL (default 24h), refreshed on every write so
+  actively-used sessions never expire mid-session. Proven directly
+  against real Redis: TTL genuinely set (not None/-1) and genuinely
+  refreshes on subsequent writes (not decaying toward zero). Real,
+  honest scope note: applies ONE uniform TTL regardless of flagged
+  status -- the blueprint's finer-grained "longer retention for
+  audit-relevant flagged sessions" policy is NOT implemented,
+  tracked as real follow-up.

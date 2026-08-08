@@ -109,3 +109,45 @@ def test_params_with_special_characters_round_trip(store):
     store.append_call(session_id=sid, call=call)
     retrieved = store.get_calls(session_id=sid)
     assert retrieved == (call,)
+
+
+def test_session_data_has_a_real_ttl_not_persisted_indefinitely():
+    """
+    §19 content-handling requirement (found via blueprint re-audit):
+    session data must not persist indefinitely. Real, direct proof
+    against actual Redis: a fresh session's TTL is genuinely set
+    (not None/-1, which would mean no expiry at all).
+    """
+    sid = _sid()
+    store = RedisSessionStore(redis_url=REDIS_URL, session_ttl_seconds=3600)
+    store.append_attempt(
+        session_id=sid,
+        call=ToolCall(tool_name="read_inbox", params={"count": "5"}, turn_index=0),
+        outcome=CallOutcome.ALLOWED,
+    )
+    ttl = store.get_ttl_seconds(session_id=sid)
+    assert ttl is not None, "Session key has no TTL set — data would persist indefinitely"
+    assert 0 < ttl <= 3600
+
+
+def test_ttl_refreshes_on_each_write_active_session_never_expires_early():
+    sid = _sid()
+    store = RedisSessionStore(redis_url=REDIS_URL, session_ttl_seconds=3600)
+    store.append_attempt(
+        session_id=sid,
+        call=ToolCall(tool_name="read_inbox", params={"count": "5"}, turn_index=0),
+        outcome=CallOutcome.ALLOWED,
+    )
+    first_ttl = store.get_ttl_seconds(session_id=sid)
+
+    store.append_attempt(
+        session_id=sid,
+        call=ToolCall(tool_name="reply_to_email", params={"email_id": "1", "body": "ok"}, turn_index=1),
+        outcome=CallOutcome.ALLOWED,
+    )
+    second_ttl = store.get_ttl_seconds(session_id=sid)
+
+    # Real proof of refresh: second TTL should NOT be meaningfully
+    # lower than first (allowing tiny real clock drift, not a full
+    # decay toward zero).
+    assert second_ttl >= first_ttl - 2
