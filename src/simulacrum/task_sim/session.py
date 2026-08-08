@@ -104,8 +104,12 @@ def _inbox_triage_reply_params(rng: random.Random) -> dict[str, str]:
 
 
 def _flight_search_params(rng: random.Random) -> dict[str, str]:
-    origins = ["JFK", "LAX", "ORD", "SFO"]
-    dests = ["LHR", "CDG", "NRT", "SYD"]
+    # Widened (finding 014 content-diversity follow-up): search_flights
+    # now repeats up to 5x per session (variable-length fix), so a
+    # narrow 4-item choice list collides often within one session --
+    # measured 39/295 real multi-call groups had an exact duplicate.
+    origins = ["JFK", "LAX", "ORD", "SFO", "ATL", "DFW", "SEA", "BOS"]
+    dests = ["LHR", "CDG", "NRT", "SYD", "DXB", "SIN", "FRA", "AMS"]
     return {"origin": rng.choice(origins), "destination": rng.choice(dests)}
 
 
@@ -120,22 +124,45 @@ def _calendar_get_params(rng: random.Random) -> dict[str, str]:
 
 
 def _calendar_add_params(rng: random.Random) -> dict[str, str]:
-    titles = ["Team sync", "Dentist appointment", "Project review", "Lunch with client"]
+    # Widened (finding 014 content-diversity follow-up): add_calendar_event
+    # now repeats up to 5x per session, and the old 4-item list collided
+    # in 147/326 (45%) real multi-call groups -- the worst offender
+    # measured across all task types.
+    titles = [
+        "Team sync", "Dentist appointment", "Project review", "Lunch with client",
+        "1:1 with manager", "Quarterly planning", "Client onboarding call",
+        "Budget review", "Sprint retrospective", "Vendor check-in",
+        "Interview panel", "All-hands meeting",
+    ]
     return {"title": rng.choice(titles)}
 
 
 def _file_list_params(rng: random.Random) -> dict[str, str]:
-    queries = ["quarterly report", "project proposal", "meeting notes", "budget spreadsheet"]
+    # Widened (finding 014 content-diversity follow-up).
+    queries = [
+        "quarterly report", "project proposal", "meeting notes", "budget spreadsheet",
+        "design mockups", "onboarding checklist", "vendor contract", "roadmap draft",
+    ]
     return {"query": rng.choice(queries)}
 
 
 def _file_share_params(rng: random.Random) -> dict[str, str]:
-    recipients = ["colleague@company.com", "manager@company.com", "team-lead@company.com"]
+    # Widened (finding 014 content-diversity follow-up): share_file
+    # repeats up to 6x per session.
+    recipients = [
+        "colleague@company.com", "manager@company.com", "team-lead@company.com",
+        "finance@company.com", "legal@company.com", "hr@company.com",
+        "product@company.com", "design@company.com",
+    ]
     return {"file_id": f"FILE{rng.randint(1000, 9999)}", "recipient": rng.choice(recipients)}
 
 
 def _contact_search_params(rng: random.Random) -> dict[str, str]:
-    names = ["Smith", "Johnson", "Williams", "Brown"]
+    # Widened (finding 014 content-diversity follow-up).
+    names = [
+        "Smith", "Johnson", "Williams", "Brown", "Garcia", "Miller",
+        "Davis", "Rodriguez", "Martinez", "Chen",
+    ]
     return {"name": rng.choice(names)}
 
 
