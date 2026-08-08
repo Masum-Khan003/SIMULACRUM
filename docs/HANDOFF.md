@@ -464,10 +464,16 @@ told to.
 
 - **Redis**: `docker compose ps` to check; `docker compose up -d` if
   down. Container: `simulacrum-redis-1`, port 6379.
-- **`.env` file** (gitignored, real secrets): contains
-  `SIMULACRUM_REDIS_URL`, `GROQ_API_KEY`, `OPENAI_API_KEY`, `HF_TOKEN`.
-  Source with `set -a; source .env; set +a` before any command needing
-  these.
+- **`.env` file** (gitignored, real secrets): verified for real to
+  contain only `GROQ_API_KEY` and `OPENAI_API_KEY`. `SIMULACRUM_REDIS_URL`
+  is NOT in `.env` — `Settings._require_env` has no default (by design,
+  §00b), so it must be exported separately when running outside Docker
+  Compose (which sets it itself via `docker-compose.yml`); tests get it
+  via `test_api.py`'s own `os.environ.setdefault(...)` fallback and
+  CI sets it explicitly in `ci.yml`. `HF_TOKEN` is also not currently
+  in `.env` (optional, per `Settings`' documented exception). Source
+  `.env` with `set -a; source .env; set +a`, but export
+  `SIMULACRUM_REDIS_URL` explicitly too if running the API directly.
 - **`SIMULACRUM_USE_REAL_EMBEDDINGS=1`** — opt-in env var for real
   MiniLM instead of the default fake embedder. **Always `unset` this
   explicitly after use** — it has caused real, confusing false alarms
