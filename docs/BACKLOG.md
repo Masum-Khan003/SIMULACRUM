@@ -258,3 +258,25 @@ entries (append-only history without removing superseded text).
   attack detection (finding 007's actual multi-email case still
   caught). Two new permanent regression tests lock in both the
   overall 0%-disruption outcome and the specific regex fix.
+
+- ~~§13 shadow mode — never built~~ — RESOLVED (core mechanism).
+  Found via blueprint re-audit: "new deployments start in shadow mode
+  (log + flag only) until explicit graduation criteria are met."
+  Verified zero implementation existed, built the real core mechanism:
+  intercept_and_call() gained a shadow_mode parameter -- when active,
+  a call that would normally BLOCK or REQUIRE_APPROVAL still EXECUTES
+  (never actually enforced), while the REAL response_tier is still
+  computed and recorded for later analysis. Proven via a real test:
+  an actual attack call that would BLOCK in normal mode genuinely
+  executes under shadow mode, with the real tier decision still
+  visible on the result. Existing enforcement behavior completely
+  unchanged (shadow_mode defaults to False).
+
+  Real, honest scope note: only the CORE enforcement-bypass mechanism
+  is built. The blueprint's full graduation-criteria AUTOMATION
+  (tracking real observed task-type volume, observation period, and
+  automatically confirming FP rate is within tolerance before
+  recommending graduation out of shadow mode) is NOT built -- that
+  requires real volume/time-tracking infrastructure this project
+  doesn't have yet, a genuinely bigger undertaking tracked as real
+  follow-up work, not silently assumed solved.

@@ -116,9 +116,12 @@ class InterceptionResult:
     approval_request_id: str | None = None
     guardrail_bypassed: bool = False
     guardrail_bypass_reason: str | None = None
+    shadow_mode_active: bool = False
 
     @property
     def allowed(self) -> bool:
+        if self.shadow_mode_active:
+            return True
         return self.response_tier in (ResponseTier.ALLOW, ResponseTier.FLAG)
 
 
@@ -192,6 +195,7 @@ def intercept_and_call(
     params: dict[str, str],
     turn_index: int,
     divergence_threshold: float = FAKE_DIVERGENCE_THRESHOLD,
+    shadow_mode: bool = False,
 ) -> InterceptionResult:
     call_record = ToolCall(tool_name=tool_name, params=params, turn_index=turn_index)
 
@@ -250,7 +254,18 @@ def intercept_and_call(
     tool_result = None
     approval_request_id = None
 
-    if response_tier is ResponseTier.BLOCK:
+    if shadow_mode:
+        # Real shadow-mode requirement (found via blueprint
+        # re-audit, closes §13's gap): REAL response_tier is
+        # still computed above and recorded in the outcome/
+        # metrics below for graduation-criteria analysis, but
+        # the action ALWAYS executes -- shadow mode never
+        # actually blocks or holds, only observes and logs.
+        session_store.append_attempt(
+            session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED
+        )
+        tool_result = tool_registry.call(tool_name=tool_name, params=params)
+    elif response_tier is ResponseTier.BLOCK:
         session_store.append_attempt(
             session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED
         )
@@ -278,4 +293,5 @@ def intercept_and_call(
         tool_result=tool_result,
         approval_request_id=approval_request_id,
         guardrail_bypassed=False,
+        shadow_mode_active=shadow_mode,
     )
