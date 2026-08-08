@@ -89,7 +89,11 @@ def test_rate_exceeded_flagged_independent_of_outcome_history(store):
             outcome=CallOutcome.ALLOWED,
         )
     result = check_tool_loop_rate(
-        session_store=store, session_id="s1", tool_name="read_inbox", params={"count": "99"}
+        session_store=store, session_id="s1", tool_name="read_inbox", params={"count": "99"},
+        rate_threshold=3,  # real, explicit override -- this test verifies the
+        # rate-counting mechanism itself, independent of whatever the
+        # production DEFAULT_RATE_THRESHOLD currently is (finding 014:
+        # raised to 7 for realistic session lengths).
     )
     assert result.same_tool_attempt_count == 4
     assert result.is_rate_exceeded is True

@@ -9,36 +9,42 @@ entries (append-only history without removing superseded text).
 ## Open — Priority
 
 - **Finding 010: param-vs-task divergence generalization gap on real
-  external data.** STILL OPEN, single most important item. Verified-
-  correct numbers (after 2 rounds of ground-truth correction, both
-  documented in docs/findings/010-*.md): MiniLM 78.4% recall / 74.7%
-  FP rate on real AgentDojo attacks vs resisted trajectories; fake
-  embedder 90.0% / 85.2%. Three tested fixes have each failed or hit
-  a hard wall: median/25th-percentile aggregation (destroys recall or
-  barely moves either number); low-param-call exclusion (real,
-  consistent FP improvement -- MiniLM FP 74.7%->59.7% -- but a
-  genuine recall cost, 78.4%->73.1%, and NOT ported to production);
-  threshold+exemption joint recalibration (formally §17-gate-approved
-  on AgentDojo, but caused 17 real false positives on our own
-  internal held-out generalization set's previously-verified 0% FP
-  guarantee -- reverted). No tested configuration simultaneously
-  matches/exceeds AgentDojo recall AND preserves internal FP=0.
-  ~~Whether content-pattern can carry more weight for divergence's
-  blind spots~~ — MEASURED (finding 013, follow-up analysis): content-
-  pattern rescues 54.5% (6/11) of real attacks divergence misses, at
-  a real, non-trivial cost of 35.7% (5/14) new false positives on
-  cases divergence already correctly clears. Real evidence, not a
-  clean win -- consistent with every other detector-combination
-  attempt this project has measured (finding 011's Baseline A,
-  CALIBRATION_REPORT's continuous-confidence combination): leaning on
-  content-pattern trades real recall for real, comparable FP cost,
-  every time. Two real candidate directions remain genuinely
-  unattempted: (1) a larger, more structurally diverse internal
-  calibration corpus -- the biggest undertaking, still untried; (2)
-  formally documenting current numbers as an accepted, stated
-  limitation rather than continuing to search for a combination rule
-  -- increasingly the pattern each new measurement supports, not yet
-  formally decided.
+  external data.** MAJOR REAL PROGRESS (finding 014) -- root cause
+  found and fixed, NOT just another tuning attempt. Three prior tested
+  fixes (median/percentile aggregation, low-param exclusion,
+  threshold+exemption joint recalibration) all failed the SAME way:
+  any AgentDojo-recall improvement broke the internal held-out set's
+  0% FP guarantee. Real diagnosis: task_sim generated sessions of a
+  FIXED 2-call length (zero variance) while real AgentDojo trajectories
+  average 5.78 calls (median 5) -- our internal 0% FP guarantee had
+  literally never been tested past 2 calls. Fixed task_sim to generate
+  realistic variable-length sessions (2-9 calls, mean 5.53, matching
+  AgentDojo's real distribution) via repeatable step groups; also found
+  and fixed a second real bug (arbitrary numeric IDs like email_id
+  embedded directly into call_topic_text, swinging MiniLM similarity
+  by +-0.08-0.11 from pure digit noise); recalibrated 4 dependent
+  thresholds from scratch with real evidence (FAKE_DIVERGENCE_THRESHOLD
+  0.15->0.1581, MINILM_DIVERGENCE_THRESHOLD 0.3030->0.3307,
+  DEFAULT_RATE_THRESHOLD 3->7, DEFAULT_OUTBOUND_FREQUENCY_THRESHOLD
+  3->7), all validated at 100% preserved internal recall before
+  adoption. REAL RESULT against the same finding-010 methodology:
+  recall 78.4%->81.6% (+3.2pp) with internal FP=0 STILL preserved --
+  the first configuration in this entire investigation to improve
+  external recall without an internal regression. FP rate on external
+  data moved only marginally (74.7%->75.9%) -- NOT eliminated, still
+  high in absolute terms. Full writeup:
+  docs/findings/014-task-sim-variable-length-recalibration.md.
+  STILL NOT FULLY CLOSED: external FP rate remains genuinely high: the
+  underlying distributional-shift problem (different task phrasing/
+  tool vocabulary vs AgentDojo) is real and not eliminated by this
+  fix -- what changed is that the internal-test blind spot that made
+  every PRIOR attempt at closing this self-defeating is now gone.
+  Finding 013's content-pattern rescue analysis (54.5% rescue at 35.7%
+  cost) remains the most concrete lever for further real recall gains
+  if needed. Real candidate direction still open: further internal
+  corpus CONTENT diversification (task-type variety beyond length is
+  now more realistic, but still narrower than AgentDojo's genuine
+  phrasing diversity).
 
 - ~~Real async/background drift scheduling not built~~ — RESOLVED.
   DriftScheduler runs a genuine asyncio background loop (started/

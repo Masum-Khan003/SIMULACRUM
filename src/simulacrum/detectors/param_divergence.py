@@ -48,8 +48,37 @@ from simulacrum.attribution import TaskRepresentation, call_topic_text, cosine_s
 # since FakeSemanticEmbedder is still this project's DEFAULT
 # embedder -- callers using MiniLM must pass
 # MINILM_DIVERGENCE_THRESHOLD explicitly.
-FAKE_DIVERGENCE_THRESHOLD = 0.15
-MINILM_DIVERGENCE_THRESHOLD = 0.3030
+#
+# REAL RECALIBRATION (finding 014, root-cause fix for finding 010):
+# task_sim was found to generate sessions of a FIXED 2-call length
+# with zero variance, while real AgentDojo trajectories average 5.78
+# calls (median 5). This length mismatch was the actual root cause
+# behind every failed finding-010 tuning attempt -- our "0% internal
+# false-positive guarantee" was only ever tested at 2-call length.
+# task_sim/session.py was fixed to generate realistic variable-length
+# sessions (2-9 calls, mean 5.53, matching AgentDojo's real
+# distribution). Both thresholds below were RECALIBRATED from scratch
+# against the new corpus, using finding 008's validated 1st-percentile
+# methodology (derive_threshold_percentile, ~80x more poisoning-
+# resistant than min-margin): n=2804 real per-call similarity samples
+# (5 task types x 100 sessions x new variable length, well above
+# MIN_CALIBRATION_SAMPLES=200). Validated at 100% preserved recall
+# (400/400) on both injection and permission_escalation attack corpora
+# for both embedders before adoption -- see
+# docs/findings/014-task-sim-variable-length-recalibration.md.
+# SECOND recalibration pass, same session: after the variable-length
+# corpus fix (above) also surfaced a real, separate representation bug
+# in call_topic_text (attribution/call_text.py) -- arbitrary numeric
+# IDs (email_id, flight_id, file_id, contact_id) were embedded
+# directly into call-topic text, swinging MiniLM similarity by
+# +-0.08-0.11 on otherwise-identical calls purely from ID digit noise.
+# Fixed the templates to drop IDs (real task-semantic content only),
+# then re-derived thresholds from scratch against the corrected
+# representation: n=2730 real samples, still >> MIN_CALIBRATION_SAMPLES.
+# Re-validated at 100% preserved recall (400/400) on both attack
+# corpora, both embedders, before adoption.
+FAKE_DIVERGENCE_THRESHOLD = 0.1581
+MINILM_DIVERGENCE_THRESHOLD = 0.3307
 DEFAULT_DIVERGENCE_THRESHOLD = FAKE_DIVERGENCE_THRESHOLD
 
 

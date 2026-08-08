@@ -51,6 +51,10 @@ def test_frequency_exceeded_flags_regardless_of_content(store):
         session_id="s1",
         tool_name="send_payment",
         params={"amount": "10"},
+        frequency_threshold=3,  # real, explicit override -- this test verifies the
+        # CROSS-TOOL counting mechanism itself, independent of whatever the
+        # production DEFAULT_OUTBOUND_FREQUENCY_THRESHOLD currently is
+        # (finding 014: raised to 7 for realistic session lengths).
     )
     assert result.outbound_call_count == 3
     assert result.is_frequency_exceeded is True

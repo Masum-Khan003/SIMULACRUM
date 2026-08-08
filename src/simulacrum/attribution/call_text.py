@@ -8,9 +8,19 @@ from __future__ import annotations
 
 _CALL_TEMPLATES: dict[str, str] = {
     "read_inbox": "read inbox check emails count {count}",
-    "reply_to_email": "reply to email {email_id} regarding {body}",
+    # Real fix (finding 014): arbitrary numeric IDs (email_id,
+    # flight_id, file_id, contact_id) previously embedded directly
+    # into this text -- meaningless digit noise to a real semantic
+    # embedder, measured to swing MiniLM similarity by +-0.08-0.11 on
+    # otherwise-identical calls purely from which random ID number was
+    # sampled. IDs carry no real task-relevance signal, only the
+    # ACTION and any semantically meaningful content (body, query,
+    # recipient, field) do -- dropped from embedded text accordingly.
+    # turn_index/params dict still records the real ID for schema
+    # validation and logging; only the EMBEDDING text changes.
+    "reply_to_email": "reply to email regarding {body}",
     "search_flights": "search for flight from {origin} to {destination}",
-    "book_flight": "book flight {flight_id}",
+    "book_flight": "book flight reservation confirm booking",
     "get_calendar": "check calendar for date {date}",
     "add_calendar_event": "add calendar event {title}",
     # File-sharing / contact-update task types (toward §08's 5-8
@@ -18,9 +28,9 @@ _CALL_TEMPLATES: dict[str, str] = {
     # their task's initiating text (finding 005's lesson: fallback
     # generic text is more collision-prone under the fake embedder).
     "list_files": "find the document {query} to share",
-    "share_file": "share document file {file_id} with team recipient {recipient}",
+    "share_file": "share document file with team recipient {recipient}",
     "search_contacts": "look up find contact information name {name}",
-    "update_contact": "update contact information {field} for {contact_id}",
+    "update_contact": "update contact information {field}",
     # Attack-target tools (§04/§07) — dedicated templates so none of
     # these fall back to the generic "tool_name key value..." format,
     # which is more collision-prone under the fake embedder (finding

@@ -54,13 +54,25 @@ def test_generation_is_deterministic_under_seed():
 
 
 def test_attack_call_is_appended_after_legitimate_calls():
+    """
+    Real, structural invariant (finding 014: task_sim now generates
+    variable-length sessions, so a hardcoded call count is stale by
+    construction) -- the attack call must be the LAST call, appended
+    after every legitimate call, whatever the real generated length
+    turns out to be for this seed.
+    """
     attack = generate_injection_session(
         task_type=TaskType.FLIGHT_BOOKING, injected_tool_name="delete_data", rng=random.Random(1)
     )
-    normal_call_count = 2  # search_flights, book_flight
+    normal_call_count = len(attack.session.calls) - 1  # real length minus the appended attack call
     assert attack.attack_call_index == normal_call_count
     assert len(attack.session.calls) == normal_call_count + 1
     assert attack.session.calls[attack.attack_call_index].tool_name == "delete_data"
+    # Every call before the attack index must be a real, legitimate
+    # flight-booking call (search_flights/book_flight), never the
+    # injected tool leaking earlier in the sequence.
+    for call in attack.session.calls[:attack.attack_call_index]:
+        assert call.tool_name in ("search_flights", "book_flight")
 
 
 def test_ground_truth_label_and_tool_recorded():

@@ -19,7 +19,7 @@ from simulacrum.task_sim.session import _TEMPLATES  # single source of truth
 
 def _baseline_footprint(task_type: TaskType) -> frozenset[str]:
     template = _TEMPLATES[task_type]
-    return frozenset(tool_name for tool_name, _ in template.steps)
+    return frozenset(group.tool_name for group in template.groups)
 
 
 BASELINE_FOOTPRINT: dict[TaskType, frozenset[str]] = {
