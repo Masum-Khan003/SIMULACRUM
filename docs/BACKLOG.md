@@ -182,3 +182,18 @@ entries (append-only history without removing superseded text).
   reproducible bug (`AttributeError: 'str' object has no attribute
   'name'` inside their own `benchmark_suite` function) — worked around
   by running sequentially, not something to fix in our own codebase.
+
+- ~~Preserve continuous confidence across detectors (calibration
+  follow-up)~~ — ATTEMPTED. Added a genuine, ADDITIVE confidence field
+  to GroqContentPatternDetector (existing is_suspicious logic
+  completely untouched, proven via a real regression test using the
+  same adaptive-evasion ladder). Real result: continuous-confidence
+  averaged combination gave Brier score 0.2673 -- substantial
+  improvement over the binary-flag combination (0.4146, confirming
+  discretization was a real factor), but STILL slightly worse than
+  divergence alone (0.2333). Honest conclusion: simple averaging is
+  also not the right combination rule. Genuinely open follow-up (not
+  attempted, stated honestly): a smarter, non-naive combination rule
+  (weighted by confidence, or using content-pattern specifically to
+  break ties near divergence's own threshold) might do better than
+  either single-detector or naive combination.

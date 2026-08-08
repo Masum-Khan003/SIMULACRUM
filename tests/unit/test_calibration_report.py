@@ -78,3 +78,24 @@ def test_generate_full_report():
     assert report.sample_count == 2
     assert 0 <= report.brier_score <= 1
     assert len(report.reliability_bins) == 10
+
+
+def test_content_pattern_confidence_conversion_suspicious_case():
+    from simulacrum.evaluation.calibration_report import content_pattern_confidence_to_probability
+
+    prob = content_pattern_confidence_to_probability(is_suspicious=True, confidence=0.9)
+    assert prob == 0.9
+
+
+def test_content_pattern_confidence_conversion_normal_case():
+    from simulacrum.evaluation.calibration_report import content_pattern_confidence_to_probability
+
+    # 95% confident it's NORMAL -> 5% probability of attack, NOT 95%
+    prob = content_pattern_confidence_to_probability(is_suspicious=False, confidence=0.95)
+    assert prob == pytest.approx(0.05)
+
+
+def test_content_pattern_confidence_conversion_none_stays_none():
+    from simulacrum.evaluation.calibration_report import content_pattern_confidence_to_probability
+
+    assert content_pattern_confidence_to_probability(is_suspicious=True, confidence=None) is None

@@ -109,3 +109,21 @@ def generate_calibration_report(*, samples: list[CalibrationSample]) -> Calibrat
     brier = compute_brier_score(samples=samples)
     bins = compute_reliability_bins(samples=samples)
     return CalibrationReport(brier_score=brier, reliability_bins=bins, sample_count=len(samples))
+
+
+def content_pattern_confidence_to_probability(
+    *, is_suspicious: bool, confidence: float | None
+) -> float | None:
+    """
+    Converts GroqContentPatternDetector's (is_suspicious, confidence-
+    in-verdict) pair into a genuine probability-of-attack, correctly
+    handling the semantic direction: confidence represents confidence
+    in the STATED verdict, not confidence of attack specifically.
+    verdict=SUSPICIOUS with confidence=0.9 -> 0.9 probability of
+    attack. verdict=NORMAL with confidence=0.95 -> 0.05 probability of
+    attack (95% confident it's NOT an attack). Returns None if
+    confidence itself is None (unparseable or heuristic fallback).
+    """
+    if confidence is None:
+        return None
+    return confidence if is_suspicious else (1.0 - confidence)

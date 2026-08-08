@@ -158,3 +158,43 @@ own. A better system-level combination would likely need to preserve
 each detector's own continuous confidence (not just a binary flag)
 and/or model correlation between detectors explicitly — real,
 valuable, NOT YET attempted follow-up work.
+
+## System-level calibration, take two: continuous confidence
+
+Follow-up to the binary-flag combination above. Added a genuine
+continuous confidence score to GroqContentPatternDetector (additive
+change, existing `is_suspicious` decision logic untouched — see
+`ContentPatternResult.confidence`), correctly converted to a real
+probability-of-attack (handling the semantic direction: confidence is
+"how sure of THIS verdict," not "probability of attack" directly —
+verdict=NORMAL with confidence=0.95 means 5% attack probability, not
+95%). Combined via simple averaging with divergence's own continuous
+pseudo-probability, same real bounded sample (n=120, same random seed,
+fair comparison).
+
+| Approach | Brier Score |
+|---|---|
+| Divergence alone | 0.2333 |
+| Binary-flag combination (0.0/0.5/1.0) | 0.4146 |
+| Continuous-confidence combination (averaged) | 0.2673 |
+
+**Real, honest conclusion:** continuous confidence is a genuine,
+substantial improvement over binary flags (0.4146 -> 0.2673),
+confirming discretization was a real factor in the earlier regression.
+However, it STILL does not beat divergence alone (0.2333) on this
+bounded sample. This means simple averaging is also not the right
+combination rule — content-pattern's real signal, even continuous,
+doesn't add clear net calibration value when combined this naively.
+
+**Genuinely open, real follow-up work** (not attempted): a smarter
+combination rule (weighted averaging favoring whichever detector is
+more confident, or using content-pattern specifically to break ties
+when divergence sits near its own threshold, rather than blending both
+scores unconditionally) might do better than either divergence alone
+or simple averaging. This report intentionally stops at reporting the
+real, measured evidence rather than continuing to search for a
+combination rule that "wins" — the honest result is that naive
+combination approaches (binary and simple-average continuous) both
+underperform the single best detector on this specific external
+dataset, which is itself real, useful information about this system's
+current limits.
