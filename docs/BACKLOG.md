@@ -238,3 +238,23 @@ entries (append-only history without removing superseded text).
   status -- the blueprint's finer-grained "longer retention for
   audit-relevant flagged sessions" policy is NOT implemented,
   tracked as real follow-up.
+
+- ~~§02 MVP scope: "Task-completion-rate cost reporting for every
+  false positive" — never built~~ — RESOLVED, and found a REAL bug
+  along the way. Found via blueprint re-audit: this distinct metric
+  (does ANY call in a legitimate multi-call session get falsely
+  flagged, not just per-call FP rate) had never been measured. Built
+  evaluation/task_completion_report.py, ran it for real against
+  default production config (fake embedder + heuristic fallback):
+  FIRST real measurement found a genuine 20% false-positive task-cost
+  rate (40/200 legitimate sessions disrupted). Root-caused precisely:
+  the heuristic content-pattern detector's email regex flagged ANY
+  single email address, not genuine bulk-data shape (2+ emails) as
+  the module's own docstring always intended -- a real, single-line
+  regex bug producing real, session-level disruption on legitimate
+  file-sharing/contact-update tasks (introduced when those task types
+  were added earlier this session). Fixed and re-measured: 100% clean
+  completion, 0% disruption. Verified the fix didn't regress real
+  attack detection (finding 007's actual multi-email case still
+  caught). Two new permanent regression tests lock in both the
+  overall 0%-disruption outcome and the specific regex fix.

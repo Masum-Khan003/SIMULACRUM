@@ -40,7 +40,18 @@ from typing import Protocol
 # sequences, "password"/"api key"/"credentials" mentions, CSV/JSON-like
 # structure, long base64-ish tokens.
 _STRUCTURED_DATA_PATTERNS = [
-    re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),  # email address (any)
+    # Real fix (found via task-completion-rate audit, §02 MVP scope
+    # item): the ORIGINAL pattern flagged ANY single email address --
+    # but a single legitimate recipient/contact email is completely
+    # normal for real tools (share_file, update_contact, send_email),
+    # producing a real, measured 20% false-positive task-cost rate.
+    # This module's own docstring always said the real signal is
+    # "multiple email addresses" (bulk export), not any single match
+    # -- the regex just never enforced that. Fixed: requires 2+
+    # distinct email addresses in one value (genuine bulk-data shape),
+    # verified to still catch finding 007's real multi-email attack
+    # case while no longer flagging a single legitimate recipient.
+    re.compile(r"(?:[\w.+-]+@[\w-]+\.[\w.-]+.*){2,}"),  # 2+ email addresses (bulk shape)
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),  # SSN-shaped
     re.compile(r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"),  # card-shaped
     re.compile(r"\b(password|api[_\s-]?key|secret|credential|token)s?\b", re.IGNORECASE),
