@@ -103,8 +103,17 @@ entries (append-only history without removing superseded text).
   inverted-confidence anomaly in the lowest bin, reported honestly
   rather than hidden. Explicitly scoped as single-detector, not
   system-level (5 other independent detectors exist and structurally
-  catch cases divergence misses) -- a full system-level calibration
-  report remains real, valuable future work.
+  catch cases divergence misses). ~~System-level calibration report~~
+  — ATTEMPTED with a real, honest result: combining divergence +
+  content-pattern (the only 2 detectors that are genuinely tool-
+  vocabulary-agnostic and can evaluate AgentDojo's different tools at
+  all) gave Brier score 0.4146 -- WORSE than divergence alone (0.2333).
+  Real diagnosis: the two detectors' errors correlate (both agree even
+  when wrong), and naive binary-flag combination discards each
+  detector's own continuous confidence signal. A real, valuable,
+  NOT-yet-attempted follow-up: preserve continuous confidence across
+  detectors and/or model inter-detector correlation explicitly, rather
+  than combining discrete flags.
 
 - ~~CI import-order check (finding 003) never built~~ — RESOLVED.
   tests/check_import_order.py imports every subpackage in multiple

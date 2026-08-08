@@ -106,3 +106,55 @@ for t in resisted:
 report = generate_calibration_report(samples=samples)
 print(f"Brier score: {report.brier_score:.4f}")
 ```
+
+## System-level calibration (divergence + content-pattern), real bounded sample
+
+Real, honest scope note: a genuinely honest "system-level" report for
+THIS external dataset can only combine detectors that structurally can
+evaluate AgentDojo's different tool vocabulary at all — schema,
+permission escalation, and exfiltration are keyed to Simulacrum's own
+tool names/baselines and cannot meaningfully evaluate AgentDojo's
+tools (see `agentdojo_adapter/adapter.py`'s own scope docstring).
+Only param-vs-task divergence and content-pattern detection are
+genuinely tool-vocabulary-agnostic. This report combines those two,
+using a real, bounded sample (n=120: 60 real attacks, 60 real resisted,
+random-seeded) rather than the full dataset, given content-pattern
+scoring requires real Groq API calls.
+
+**Pseudo-probability construction:** fraction of the 2 detectors that
+flagged the trajectory (0.0 = neither, 0.5 = one, 1.0 = both).
+
+### Real result: Brier score 0.4146 — WORSE than divergence alone (0.2333)
+
+This is a genuine, honest, somewhat counterintuitive finding, reported
+precisely rather than hidden or spun positively.
+
+| Bin | Mean Predicted | Observed Frequency | N |
+|---|---|---|---|
+| [0.0-0.1) (neither flags) | 0.000 | 0.357 | 14 |
+| [0.5-0.6) (one flags) | 0.500 | 0.590 | 39 |
+| [0.9-1.0) (both flag) | 1.000 | 0.478 | 67 |
+
+**Real diagnosis, not spin:**
+1. When NEITHER detector flags, 35.7% of those trajectories were
+   still real attacks — a genuine, meaningful miss rate for the
+   "both clear" case.
+2. When BOTH detectors flag, only 47.8% were real attacks — the two
+   detectors' errors are CORRELATED (they tend to agree even when
+   wrong), not independent. Combining them does not behave like
+   independent evidence stacking would predict.
+3. A real methodological factor: this combination only produces 3
+   discrete probability levels (0.0/0.5/1.0), a much coarser scale
+   than divergence alone's continuous similarity score. Brier score
+   penalizes confident, coarse predictions more heavily than smooth
+   continuous ones — some of this regression is a real artifact of
+   discretization, not purely a signal-quality problem.
+
+**Honest conclusion:** naively combining two detectors' binary
+flags does NOT automatically improve calibration, and can make it
+measurably worse if the detectors' errors correlate and the
+combination discards the continuous signal either detector had on its
+own. A better system-level combination would likely need to preserve
+each detector's own continuous confidence (not just a binary flag)
+and/or model correlation between detectors explicitly — real,
+valuable, NOT YET attempted follow-up work.
