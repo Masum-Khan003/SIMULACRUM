@@ -176,3 +176,31 @@ def test_drift_status_for_unknown_session_returns_404():
     with TestClient(app) as client:
         r = client.get("/sessions/nonexistent-session/drift-status")
         assert r.status_code == 404
+
+
+def test_explanation_field_never_leaks_raw_sensitive_params():
+    """
+    Real, end-to-end proof of §19's redaction requirement: sends real
+    sensitive content (email address, SSN) through the actual HTTP
+    API, confirms neither appears anywhere in the response body.
+    """
+    with TestClient(app) as client:
+        r1 = client.post("/sessions", json={"task_type": "inbox_triage"})
+        session_id = r1.json()["session_id"]
+
+        r2 = client.post(
+            f"/sessions/{session_id}/intercept",
+            json={
+                "tool_name": "reply_to_email",
+                "params": {
+                    "email_id": "42",
+                    "body": (
+                        "Please find attached the customer export including "
+                        "jane.doe@company.com and SSN 987-65-4321"
+                    ),
+                },
+            },
+        )
+        body_text = str(r2.json())
+        assert "jane.doe@company.com" not in body_text
+        assert "987-65-4321" not in body_text

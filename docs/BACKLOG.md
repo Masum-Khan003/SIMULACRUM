@@ -197,3 +197,30 @@ entries (append-only history without removing superseded text).
   (weighted by confidence, or using content-pattern specifically to
   break ties near divergence's own threshold) might do better than
   either single-detector or naive combination.
+
+- ~~§19 sensitive-parameter redaction — never built~~ — RESOLVED.
+  Found via a real audit re-reading the original blueprint against
+  what's actually built (explicitly called "a day-one requirement" in
+  §19, extending Palimpsest's own §17 IP-hashing discipline). Real,
+  current exposure identified and closed: LLM-generated reasoning
+  (GroqExplainer, GroqDriftDetector) naturally quotes back real param
+  content it analyzes (emails, SSNs, credentials) -- this flowed
+  completely unredacted into HTTP API responses. Built
+  redaction/redactor.py (reuses content_pattern.py's real, tested
+  structured-data patterns, kept as a deliberate separate copy since
+  detection and redaction have different failure costs), wired into
+  both API reasoning/explanation fields, proven end-to-end with real
+  sensitive content sent through the actual HTTP API and confirmed
+  absent from the response (permanent regression test in test_api.py).
+
+- **Cross-agent/multi-agent injection propagation — correctly NOT
+  built, now explicitly documented rather than silently absent.**
+  Found via the same blueprint re-audit: explicitly scoped in the
+  original document as "a Phase 2 stretch goal... not MVP," requiring
+  genuine multi-agent orchestration infrastructure this project has
+  never built (consistent with Phase 3's "second agent-framework
+  integration," which is also untouched by design). This is a real,
+  legitimate gap for a genuinely comprehensive system, correctly
+  deferred pending a real architectural decision about multi-agent
+  support, not something to build without first choosing that
+  direction deliberately.

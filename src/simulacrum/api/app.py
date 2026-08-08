@@ -17,6 +17,7 @@ import simulacrum.observability  # noqa: F401 — registers metric families
 from simulacrum.api.state import UnknownSessionError, app_state
 from simulacrum.explainability import ExplanationContext
 from simulacrum.interception import intercept_and_call
+from simulacrum.redaction.redactor import redact_text
 from simulacrum.risk_tiers import UnregisteredToolError
 from simulacrum.task_sim import TaskType
 from simulacrum.tier_engine import ApprovalAlreadyDecidedError, UnknownApprovalRequestError
@@ -179,7 +180,8 @@ def check_drift(session_id: str) -> DriftCheckResponse:
         task_description=task_representation.current_task_text,
         call_history=call_descriptions,
     )
-    return DriftCheckResponse(is_drifted=result.is_drifted, reasoning=result.reasoning)
+    redacted_reasoning = redact_text(text=result.reasoning) if result.reasoning else None
+    return DriftCheckResponse(is_drifted=result.is_drifted, reasoning=redacted_reasoning)
 
 
 class StandingDriftResponse(BaseModel):
@@ -211,7 +213,7 @@ def get_drift_status(session_id: str) -> StandingDriftResponse:
     return StandingDriftResponse(
         has_decision=True,
         is_drifted=decision.result.is_drifted,
-        reasoning=decision.result.reasoning,
+        reasoning=redact_text(text=decision.result.reasoning) if decision.result.reasoning else None,
         checked_at_call_count=decision.checked_at_call_count,
     )
 
@@ -252,13 +254,17 @@ def intercept(session_id: str, body: InterceptRequest) -> InterceptResponse:
     # benefit (§14 is about explaining FLAGGED/HELD/BLOCKED actions).
     explanation = None
     if result.response_tier.value != "allow":
-        explanation = app_state.explainer.explain(
+        raw_explanation = app_state.explainer.explain(
             context=ExplanationContext(
                 tool_name=result.tool_name,
                 response_tier=result.response_tier.value,
                 flagged_reasons=_collect_flagged_reasons(result),
             )
         )
+        # §19 day-one requirement: redact before this text ever leaves
+        # the process (LLM reasoning naturally quotes back the real
+        # param content it analyzed).
+        explanation = redact_text(text=raw_explanation)
 
     return InterceptResponse(
         tool_name=result.tool_name,
