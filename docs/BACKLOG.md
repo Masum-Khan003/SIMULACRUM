@@ -302,3 +302,29 @@ entries (append-only history without removing superseded text).
   input-only classifier structurally cannot evaluate "does this
   SEQUENCE deviate from the goal" one call at a time) -- this may be
   where session-awareness's real value actually lives, untested here.
+
+- **§10's remaining two required baselines — honestly documented,
+  not built this session.** Found via the same blueprint re-audit as
+  the input-only classifier baseline above.
+  1. **"Explicit-detectors-only baseline"** (concrete, buildable, NOT
+     yet built): does the LLM-based goal-drift detector earn its real
+     complexity/cost over the explicit detectors (schema, divergence,
+     escalation, loop-rate, exfiltration, content-pattern) alone?
+     Given this session's own evidence that LLM-based reasoning
+     (content-pattern, and now the input-only baseline) tends to
+     outperform mechanical signals, a real, direct measurement here
+     would be valuable and is a well-scoped next step: run real
+     AgentDojo trajectories through the explicit-detector set with
+     and without goal-drift, compare recall/FP.
+  2. **"Earliest-anomaly-onset baseline"** — genuine, honest AMBIGUITY
+     in the source blueprint itself: it references "the cheap
+     heuristic identified during this project's own scoping review,"
+     but no such heuristic is specified anywhere in the actual
+     document (verified via direct text search — this exact phrase
+     appears exactly once, with no further detail). This cannot be
+     built with confidence without guessing at unstated intent. A
+     reasonable interpretation (untested, not assumed correct):
+     measuring whether a trajectory's first-flagged-call turn-index
+     alone is a meaningful predictor, without needing full trajectory
+     aggregation. Flagged honestly as a real spec gap, not silently
+     dropped or guessed into false confidence.
