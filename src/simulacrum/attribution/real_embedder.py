@@ -6,13 +6,13 @@ which explicitly IS allowed an external dependency per §20, because
 it's optional and fails open).
 
 Implements the exact same TaskEmbedder protocol as FakeTaskEmbedder/
-FakeSemanticEmbedder — this is the whole point of building it as a
+FakeSemanticEmbedder -- this is the whole point of building it as a
 Protocol back in Phase 0: swapping in the real thing requires zero
 changes to TaskRepresentation, check_param_divergence, or anything
 else that consumes an embedder.
 
 Heavier dependency (sentence-transformers -> torch) than anything
-else in this project — kept as an optional extra, not a core
+else in this project -- kept as an optional extra, not a core
 dependency, since most of the test suite doesn't need real semantic
 understanding to prove LOGIC is correct (that's exactly what the fake
 embedders are for).
@@ -25,14 +25,23 @@ from simulacrum.attribution.embedding import Vector
 class MiniLMEmbedder:
     """
     Lazy-imports sentence_transformers so importing THIS MODULE never
-    requires torch to be installed — only constructing a MiniLMEmbedder
+    requires torch to be installed -- only constructing a MiniLMEmbedder
     does. Same lazy-import discipline as GroqExplainer.
+
+    hf_token is OPTIONAL (unlike GROQ_API_KEY for GroqExplainer, which
+    gates an entire alternate code path) -- MiniLM downloads work fine
+    unauthenticated, just at lower Hugging Face Hub rate limits. When
+    provided, passed through to SentenceTransformer's own token
+    parameter for higher rate limits.
     """
 
-    def __init__(self, *, model_name: str = "all-MiniLM-L6-v2") -> None:
+    def __init__(self, *, model_name: str = "all-MiniLM-L6-v2", hf_token: str | None = None) -> None:
         from sentence_transformers import SentenceTransformer
 
-        self._model = SentenceTransformer(model_name)
+        if hf_token:
+            self._model = SentenceTransformer(model_name, token=hf_token)
+        else:
+            self._model = SentenceTransformer(model_name)
 
     def embed(self, text: str) -> Vector:
         vector = self._model.encode(text, convert_to_numpy=True)

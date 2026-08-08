@@ -126,9 +126,10 @@ entries (append-only history without removing superseded text).
 - **Feature-schema hash/versioning (§11, Palimpsest bug #2 guard) not
   built.** No calibration-manifest format exists yet to hash against.
 
-- **HF_TOKEN not configured** (minor). MiniLM downloads show
-  "unauthenticated requests" warnings — functionally fine for a public
-  model, worth setting for higher rate limits if used heavily.
+- ~~HF_TOKEN not configured~~ — RESOLVED. Added to Settings
+  (same optional-config pattern as GROQ_API_KEY), threaded through
+  MiniLMEmbedder's constructor to SentenceTransformer's own token
+  parameter for higher Hugging Face Hub rate limits when set.
 
 - **Attack-target tools (send_payment, etc.) have no registered
   schema** (intentional — they're not part of any legitimate task

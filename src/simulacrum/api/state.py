@@ -49,7 +49,7 @@ class AppState:
         if os.environ.get("SIMULACRUM_USE_REAL_EMBEDDINGS") == "1":
             from simulacrum.attribution import MiniLMEmbedder
 
-            self.embedder = MiniLMEmbedder()
+            self.embedder = MiniLMEmbedder(hf_token=settings.hf_token)
             self.divergence_threshold = MINILM_DIVERGENCE_THRESHOLD
         else:
             self.embedder = FakeSemanticEmbedder()
