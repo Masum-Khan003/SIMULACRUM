@@ -204,3 +204,119 @@ def test_explanation_field_never_leaks_raw_sensitive_params():
         body_text = str(r2.json())
         assert "jane.doe@company.com" not in body_text
         assert "987-65-4321" not in body_text
+
+
+def test_ops_decide_returns_503_when_not_configured(client, monkeypatch):
+    """
+    Real, honest-disablement check (finding 020): with no
+    SIMULACRUM_OPS_APPROVER_API_KEY configured, the ops-decide
+    endpoint must be HONESTLY unavailable (503), never silently
+    permissive.
+    """
+    from simulacrum.config.settings import get_settings
+
+    monkeypatch.delenv("SIMULACRUM_OPS_APPROVER_API_KEY", raising=False)
+    get_settings.cache_clear()
+
+    r1 = client.post("/sessions", json={"task_type": "flight_booking"})
+    session_id = r1.json()["session_id"]
+    r2 = client.post(
+        f"/sessions/{session_id}/intercept",
+        json={"tool_name": "book_flight", "params": {}},
+    )
+    request_id = r2.json()["approval_request_id"]
+
+    r3 = client.post(
+        f"/approvals/{request_id}/ops-decide",
+        json={"approved": True},
+        headers={"X-Ops-Approver-Key": "any-key-at-all"},
+    )
+    assert r3.status_code == 503
+    get_settings.cache_clear()
+
+
+def test_ops_decide_returns_401_with_wrong_key(client, monkeypatch):
+    """Real auth check: a configured key that doesn't match must reject with 401."""
+    from simulacrum.config.settings import get_settings
+
+    monkeypatch.setenv("SIMULACRUM_OPS_APPROVER_API_KEY", "real-correct-key")
+    get_settings.cache_clear()
+
+    r1 = client.post("/sessions", json={"task_type": "flight_booking"})
+    session_id = r1.json()["session_id"]
+    r2 = client.post(
+        f"/sessions/{session_id}/intercept",
+        json={"tool_name": "book_flight", "params": {}},
+    )
+    request_id = r2.json()["approval_request_id"]
+
+    r3 = client.post(
+        f"/approvals/{request_id}/ops-decide",
+        json={"approved": True},
+        headers={"X-Ops-Approver-Key": "wrong-key"},
+    )
+    assert r3.status_code == 401
+
+    monkeypatch.delenv("SIMULACRUM_OPS_APPROVER_API_KEY", raising=False)
+    get_settings.cache_clear()
+
+
+def test_ops_decide_succeeds_with_real_correct_key(client, monkeypatch):
+    """
+    THE real, load-bearing test: a genuinely correct key succeeds,
+    and the decision is recorded as OPS_SECURITY_APPROVER, not the
+    default TASK_INITIATING_USER -- proving the real role distinction
+    actually threads through end-to-end via real HTTP.
+    """
+    from simulacrum.api.state import app_state
+    from simulacrum.config.settings import get_settings
+    from simulacrum.tier_engine import ApproverRole
+
+    monkeypatch.setenv("SIMULACRUM_OPS_APPROVER_API_KEY", "real-correct-key")
+    get_settings.cache_clear()
+
+    r1 = client.post("/sessions", json={"task_type": "flight_booking"})
+    session_id = r1.json()["session_id"]
+    r2 = client.post(
+        f"/sessions/{session_id}/intercept",
+        json={"tool_name": "book_flight", "params": {}},
+    )
+    request_id = r2.json()["approval_request_id"]
+
+    r3 = client.post(
+        f"/approvals/{request_id}/ops-decide",
+        json={"approved": True},
+        headers={"X-Ops-Approver-Key": "real-correct-key"},
+    )
+    assert r3.status_code == 200
+    assert r3.json()["outcome"] == "approved"
+
+    real_request = app_state.approval_queue.get(request_id=request_id)
+    assert real_request.decided_by_role is ApproverRole.OPS_SECURITY_APPROVER
+
+    monkeypatch.delenv("SIMULACRUM_OPS_APPROVER_API_KEY", raising=False)
+    get_settings.cache_clear()
+
+
+def test_regular_decide_still_records_task_initiating_user_role(client):
+    """
+    Real, structural regression guard: the ORIGINAL /decide endpoint
+    must still record ApproverRole.TASK_INITIATING_USER (the default),
+    proving the ops-approver addition didn't silently change existing
+    MVP behavior.
+    """
+    from simulacrum.api.state import app_state
+    from simulacrum.tier_engine import ApproverRole
+
+    r1 = client.post("/sessions", json={"task_type": "flight_booking"})
+    session_id = r1.json()["session_id"]
+    r2 = client.post(
+        f"/sessions/{session_id}/intercept",
+        json={"tool_name": "book_flight", "params": {}},
+    )
+    request_id = r2.json()["approval_request_id"]
+
+    client.post(f"/approvals/{request_id}/decide", json={"approved": True})
+
+    real_request = app_state.approval_queue.get(request_id=request_id)
+    assert real_request.decided_by_role is ApproverRole.TASK_INITIATING_USER

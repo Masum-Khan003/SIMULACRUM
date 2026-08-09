@@ -1,6 +1,7 @@
 from simulacrum.tier_engine.approval_queue import (
     DEFAULT_TIMEOUT_SECONDS,
     ApprovalAlreadyDecidedError,
+    ApproverRole,
     ApprovalOutcome,
     ApprovalQueue,
     ApprovalRequest,
@@ -11,6 +12,7 @@ from simulacrum.tier_engine.response_tier import ResponseTier, decide_response_t
 __all__ = [
     "DEFAULT_TIMEOUT_SECONDS",
     "ApprovalAlreadyDecidedError",
+    "ApproverRole",
     "ApprovalOutcome",
     "ApprovalQueue",
     "ApprovalRequest",

@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
@@ -20,7 +20,7 @@ from simulacrum.interception import intercept_and_call
 from simulacrum.redaction.redactor import redact_text
 from simulacrum.risk_tiers import UnregisteredToolError
 from simulacrum.task_sim import TaskType
-from simulacrum.tier_engine import ApprovalAlreadyDecidedError, UnknownApprovalRequestError
+from simulacrum.tier_engine import ApprovalAlreadyDecidedError, ApproverRole, UnknownApprovalRequestError
 
 
 @asynccontextmanager
@@ -297,8 +297,58 @@ def get_approval(request_id: str) -> ApprovalStatusResponse:
 
 @app.post("/approvals/{request_id}/decide", response_model=ApprovalStatusResponse)
 def decide_approval(request_id: str, body: ApprovalDecisionRequest) -> ApprovalStatusResponse:
+    """
+    Original MVP endpoint -- the task-initiating user's own approval
+    channel, unchanged. Records ApproverRole.TASK_INITIATING_USER
+    (the decide() default), same real, honest limitation §13 always
+    stated: this does not defend against the agent socially
+    engineering the same user it's asking for approval from.
+    """
     try:
         request = app_state.approval_queue.decide(request_id=request_id, approved=body.approved)
+    except UnknownApprovalRequestError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+    except ApprovalAlreadyDecidedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
+    return ApprovalStatusResponse(request_id=request.request_id, outcome=request.outcome.value)
+
+
+@app.post("/approvals/{request_id}/ops-decide", response_model=ApprovalStatusResponse)
+def ops_decide_approval(
+    request_id: str,
+    body: ApprovalDecisionRequest,
+    x_ops_approver_key: str | None = Header(default=None),
+) -> ApprovalStatusResponse:
+    """
+    Real, Phase 3 endpoint (finding 020, resolves §13's own named
+    limitation): a genuinely independent ops/security-approver
+    channel, out-of-band from the task-initiating user's own session.
+
+    Real, not self-reported, auth: requires the X-Ops-Approver-Key
+    header to match settings.ops_approver_api_key exactly. If that
+    setting is unconfigured (None), this endpoint is HONESTLY
+    DISABLED (503) -- never silently permissive, never accepting an
+    unconfigured/empty key as valid. This is a deliberate, optional
+    feature (§13 Phase 3+), not assumed-enabled.
+    """
+    from simulacrum.config import get_settings
+
+    settings = get_settings()
+    if settings.ops_approver_api_key is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Ops-approver role is not configured on this deployment "
+            "(SIMULACRUM_OPS_APPROVER_API_KEY unset) -- this endpoint is "
+            "honestly disabled, not silently permissive.",
+        )
+    if x_ops_approver_key != settings.ops_approver_api_key:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Ops-Approver-Key header")
+
+    try:
+        request = app_state.approval_queue.decide(
+            request_id=request_id, approved=body.approved,
+            approver_role=ApproverRole.OPS_SECURITY_APPROVER,
+        )
     except UnknownApprovalRequestError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
     except ApprovalAlreadyDecidedError as e:

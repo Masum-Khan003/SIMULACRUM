@@ -210,9 +210,19 @@ entries (append-only history without removing superseded text).
   AppState as an explicit opt-in (SIMULACRUM_MULTI_INSTANCE_BREAKER=1,
   same pattern as SIMULACRUM_USE_REAL_EMBEDDINGS), default unchanged.
   4 new real tests (require real Redis), full suite 322/322.
-- Independent ops/security-approver role, separate from the
-  task-initiating user — NEXT, per approved plan
-- Exportable per-session investigation report — after approver role
+- ~~Independent ops/security-approver role, separate from the
+  task-initiating user~~ — RESOLVED (finding 020). Real, genuinely
+  authenticated auth (option 2, deliberately chosen over a self-
+  reported-only role field, which would not have actually been
+  out-of-band from a compromised session). New
+  POST /approvals/{id}/ops-decide endpoint, requires a real
+  X-Ops-Approver-Key header matching settings.ops_approver_api_key --
+  honestly 503-disabled if unconfigured, 401 on wrong key, only a
+  genuine match records ApproverRole.OPS_SECURITY_APPROVER. Original
+  /decide endpoint unchanged (defaults to TASK_INITIATING_USER). 4 new
+  real HTTP-level tests, 326/326 full suite. Full writeup:
+  docs/findings/020-independent-ops-approver-role.md.
+- Exportable per-session investigation report — NEXT, per approved plan
 - Second agent-framework integration — DEFERRED as its own explicit
   decision (like decision 001), not defaulted into
 - Lightweight human-approval web UI — CONFIRMED out of scope per §02
