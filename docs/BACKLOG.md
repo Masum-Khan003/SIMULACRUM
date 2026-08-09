@@ -220,11 +220,20 @@ entries (append-only history without removing superseded text).
   improvement over the binary-flag combination (0.4146, confirming
   discretization was a real factor), but STILL slightly worse than
   divergence alone (0.2333). Honest conclusion: simple averaging is
-  also not the right combination rule. Genuinely open follow-up (not
-  attempted, stated honestly): a smarter, non-naive combination rule
-  (weighted by confidence, or using content-pattern specifically to
-  break ties near divergence's own threshold) might do better than
-  either single-detector or naive combination.
+  also not the right combination rule. ~~A smarter, non-naive
+  combination rule (using content-pattern to break ties near
+  divergence's threshold)~~ — RESOLVED (finding 018). Built a real
+  tie-breaking rule: divergence's own score used directly except
+  within an evidence-derived ambiguous zone (+-0.05, measured to
+  cover a real 10.0% of the n=120 sample) around its threshold, where
+  content-pattern's confidence decides. Real result: Brier 0.2433 --
+  the best combination attempt yet, closer to divergence alone than
+  either prior method, but still not a clean win (recall +1.7pp, FP
+  +1.7pp -- an even trade). Closes the system-level combination-rule
+  question: 3 real approaches tried (binary, averaged, targeted
+  tiebreak), all underperform or roughly match divergence alone.
+  Further searching would be open-ended tuning, not bounded work.
+  Full writeup: docs/findings/018-tiebreak-combination-closes-system-calibration.md.
 
 - ~~§19 sensitive-parameter redaction — never built~~ — RESOLVED.
   Found via a real audit re-reading the original blueprint against
