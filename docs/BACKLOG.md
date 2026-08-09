@@ -322,10 +322,19 @@ entries (append-only history without removing superseded text).
   thesis. Full honest writeup in docs/CALIBRATION_REPORT.md: the
   comparison likely conflates reasoning-sophistication (full LLM vs
   mechanical cosine-similarity) with context-availability, rather than
-  isolating session-awareness cleanly. Real, valuable, NOT-yet-
-  attempted follow-up: a cleaner test (LLM reasoning WITH vs WITHOUT
-  session context, holding the mechanism constant) would isolate the
-  actual variable of interest. Also worth noting, not yet tested: goal
+  isolating session-awareness cleanly. ~~A cleaner test (LLM reasoning
+  WITH vs WITHOUT session context, holding the mechanism constant)~~
+  — RESOLVED (finding 016). Built ContextAwareClassifier, a deliberate
+  minimal-diff pair to InputOnlyClassifier (same model/temperature/
+  prompt shape, only difference is real task+history context). REAL
+  RESULT (n=120, same corpus): recall 61.7%->83.3% (+21.7pp), FP
+  55.0%->58.3% (+3.3pp) -- a genuinely favorable, asymmetric trade,
+  unlike every prior detector-combination attempt in this project
+  (which all traded roughly comparable recall for FP). Confirms
+  session-awareness has real value for LLM-based reasoning, resolving
+  the ambiguity this entry itself flagged. Full writeup:
+  docs/findings/016-context-isolation-session-awareness-confirmed.md.
+  Also worth noting, not yet tested: goal
   drift specifically requires trajectory awareness by definition (an
   input-only classifier structurally cannot evaluate "does this
   SEQUENCE deviate from the goal" one call at a time) -- this may be
