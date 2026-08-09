@@ -56,6 +56,9 @@ def _serialize(attempt: CallAttempt) -> str:
         "params": attempt.call.params,
         "turn_index": attempt.call.turn_index,
         "outcome": attempt.outcome.value,
+        "scoring_detail": attempt.scoring_detail,  # real, Phase 3 (finding 021) --
+        # plain dict or None, already JSON-safe by construction (see
+        # session/store.py's CallAttempt docstring).
     })
 
 
@@ -68,6 +71,10 @@ def _deserialize(raw: str) -> CallAttempt:
             turn_index=data["turn_index"],
         ),
         outcome=CallOutcome(data["outcome"]),
+        # .get(), not [...]: real backward-compatibility with any
+        # attempt written before this field existed (old real Redis
+        # data with no scoring_detail key at all).
+        scoring_detail=data.get("scoring_detail"),
     )
 
 
@@ -79,8 +86,10 @@ class RedisSessionStore:
     def __post_init__(self) -> None:
         self._client = redis.Redis.from_url(self.redis_url, decode_responses=True)
 
-    def append_attempt(self, *, session_id: str, call: ToolCall, outcome: CallOutcome) -> None:
-        attempt = CallAttempt(call=call, outcome=outcome)
+    def append_attempt(
+        self, *, session_id: str, call: ToolCall, outcome: CallOutcome, scoring_detail: dict | None = None
+    ) -> None:
+        attempt = CallAttempt(call=call, outcome=outcome, scoring_detail=scoring_detail)
         key = _key(session_id)
         self._client.rpush(key, _serialize(attempt))
         # Refresh TTL on every write -- an actively-used session's

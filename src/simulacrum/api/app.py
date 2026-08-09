@@ -17,6 +17,8 @@ import simulacrum.observability  # noqa: F401 — registers metric families
 from simulacrum.api.state import UnknownSessionError, app_state
 from simulacrum.explainability import ExplanationContext
 from simulacrum.interception import intercept_and_call
+from simulacrum.investigation import generate_investigation_report
+from simulacrum.investigation.report import to_redacted_dict
 from simulacrum.redaction.redactor import redact_text
 from simulacrum.risk_tiers import UnregisteredToolError
 from simulacrum.task_sim import TaskType
@@ -216,6 +218,30 @@ def get_drift_status(session_id: str) -> StandingDriftResponse:
         reasoning=redact_text(text=decision.result.reasoning) if decision.result.reasoning else None,
         checked_at_call_count=decision.checked_at_call_count,
     )
+
+
+@app.get("/sessions/{session_id}/report")
+def get_investigation_report(session_id: str) -> dict:
+    """
+    Real, Phase 3 endpoint (finding 021, §23): exportable per-session
+    investigation report -- every real call, real detector detail,
+    and, for held calls, the real eventual approval decision. Redacted
+    (§19) before ever leaving the process, same discipline as the
+    existing explanation/reasoning fields. JSON-first per the approved
+    production plan; Markdown rendering is real, fast follow-up work,
+    not built in this pass.
+    """
+    try:
+        app_state.get_task_representation(session_id=session_id)
+    except UnknownSessionError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+
+    report = generate_investigation_report(
+        session_id=session_id,
+        session_store=app_state.session_store,
+        approval_queue=app_state.approval_queue,
+    )
+    return to_redacted_dict(report)
 
 
 @app.post("/sessions/{session_id}/intercept", response_model=InterceptResponse)

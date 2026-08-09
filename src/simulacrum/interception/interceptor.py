@@ -62,6 +62,55 @@ class BlockedCallError(RuntimeError):
     """Raised when the interception layer blocks a call."""
 
 
+def _scoring_to_dict(scoring: "ScoringBundle") -> dict:
+    """
+    Real, Phase 3 addition (finding 021): converts a real ScoringBundle
+    into a plain, JSON-serializable dict for persistence in
+    CallAttempt.scoring_detail -- closes §18's SIEM-export gap and
+    feeds the investigation report. Deliberately plain data, not
+    detector dataclass objects, matching ExplanationContext's own
+    "just data" principle.
+    """
+    return {
+        "schema_violation": (
+            {
+                "missing_params": sorted(scoring.schema_violation.missing_params),
+                "unexpected_params": sorted(scoring.schema_violation.unexpected_params),
+                "is_violation": scoring.schema_violation.is_violation,
+            }
+            if scoring.schema_violation is not None
+            else None
+        ),
+        "divergence": {
+            "similarity": scoring.divergence_result.similarity,
+            "is_divergent": scoring.divergence_result.is_divergent,
+        },
+        "escalation": {
+            "escalated_tools": sorted(scoring.escalation_result.escalated_tools),
+            "is_escalated": scoring.escalation_result.is_escalated,
+        },
+        "loop_rate": {
+            "same_tool_attempt_count": scoring.loop_rate_result.same_tool_attempt_count,
+            "is_rate_exceeded": scoring.loop_rate_result.is_rate_exceeded,
+            "is_evasion_retry": scoring.loop_rate_result.is_evasion_retry,
+            "is_benign_retry": scoring.loop_rate_result.is_benign_retry,
+        },
+        "exfiltration": {
+            "outbound_call_count": scoring.exfiltration_result.outbound_call_count,
+            "is_frequency_exceeded": scoring.exfiltration_result.is_frequency_exceeded,
+            "is_content_anomalous": scoring.exfiltration_result.is_content_anomalous,
+            "anomalous_params": sorted(scoring.exfiltration_result.anomalous_params),
+        },
+        "content_pattern": {
+            "is_suspicious": scoring.content_pattern_result.is_suspicious,
+            "reasoning": scoring.content_pattern_result.reasoning,
+            "matched_patterns": list(scoring.content_pattern_result.matched_patterns),
+            "confidence": scoring.content_pattern_result.confidence,
+        },
+        "flagged_detector_count": scoring.flagged_detector_count,
+    }
+
+
 @dataclass(frozen=True)
 class ScoringBundle:
     schema_violation: SchemaViolation | None
@@ -266,22 +315,34 @@ def intercept_and_call(
         # the action ALWAYS executes -- shadow mode never
         # actually blocks or holds, only observes and logs.
         session_store.append_attempt(
-            session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED
+            session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED,
+            scoring_detail=_scoring_to_dict(scoring),
         )
         tool_result = tool_registry.call(tool_name=tool_name, params=params)
     elif response_tier is ResponseTier.BLOCK:
         session_store.append_attempt(
-            session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED
+            session_id=session_id, call=call_record, outcome=CallOutcome.BLOCKED,
+            scoring_detail=_scoring_to_dict(scoring),
         )
     elif response_tier is ResponseTier.REQUIRE_APPROVAL:
         request = approval_queue.submit(session_id=session_id, tool_name=tool_name, params=params)
         approval_request_id = request.request_id
+        detail = _scoring_to_dict(scoring)
+        # Real, Phase 3 addition (finding 021): threads the real
+        # approval_request_id into scoring_detail so the investigation
+        # report can look up the REAL eventual decision (approved/
+        # denied/expired, and which ApproverRole decided) via
+        # approval_queue.get() -- without this, a held call would be
+        # unlinkable from its own real outcome in the report.
+        detail["approval_request_id"] = approval_request_id
         session_store.append_attempt(
-            session_id=session_id, call=call_record, outcome=CallOutcome.PENDING_APPROVAL
+            session_id=session_id, call=call_record, outcome=CallOutcome.PENDING_APPROVAL,
+            scoring_detail=detail,
         )
     else:
         session_store.append_attempt(
-            session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED
+            session_id=session_id, call=call_record, outcome=CallOutcome.ALLOWED,
+            scoring_detail=_scoring_to_dict(scoring),
         )
         tool_result = tool_registry.call(tool_name=tool_name, params=params)
 

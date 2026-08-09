@@ -222,7 +222,28 @@ entries (append-only history without removing superseded text).
   /decide endpoint unchanged (defaults to TASK_INITIATING_USER). 4 new
   real HTTP-level tests, 326/326 full suite. Full writeup:
   docs/findings/020-independent-ops-approver-role.md.
-- Exportable per-session investigation report — NEXT, per approved plan
+- ~~Exportable per-session investigation report~~ — RESOLVED
+  (finding 021). Real, honest scoping finding first: SessionStore only
+  ever persisted call+outcome, never per-call detector detail --
+  needed for real for §14's "why" requirement. Also found completely
+  unbuilt: §18's SIEM-export requirement (structured event per
+  flag/approval/block) -- closed with the SAME real data model rather
+  than building two separate mechanisms. CallAttempt gained
+  scoring_detail (plain dict, backward-compatible, wired into all 4
+  real scoring call sites, correctly None at the 2 circuit-breaker-
+  bypass paths). New GET /sessions/{id}/report, redacted via §19's
+  existing redactor before ever leaving the process (real, direct
+  proof: an SSN-shaped string does not survive). Held calls link to
+  their real eventual ApprovalQueue decision + ApproverRole (finding
+  020). JSON-first per plan, Markdown a real scoped follow-up, not
+  built here. 7 new tests, full suite 331/331. Full writeup:
+  docs/findings/021-exportable-investigation-report.md.
+
+  Completes the approved Phase 3 production plan: multi-instance
+  breaker (019) -> approver role (020) -> investigation report (021),
+  all resolved. Second agent-framework integration remains deferred
+  as its own explicit future decision; web UI stays confirmed out of
+  scope per §02.
 - Second agent-framework integration — DEFERRED as its own explicit
   decision (like decision 001), not defaulted into
 - Lightweight human-approval web UI — CONFIRMED out of scope per §02

@@ -320,3 +320,29 @@ def test_regular_decide_still_records_task_initiating_user_role(client):
 
     real_request = app_state.approval_queue.get(request_id=request_id)
     assert real_request.decided_by_role is ApproverRole.TASK_INITIATING_USER
+
+
+def test_investigation_report_returns_real_call_and_scoring_detail(client):
+    """
+    Real, HTTP-level proof for finding 021's investigation report:
+    a real session's real call shows up with real scoring detail.
+    """
+    r1 = client.post("/sessions", json={"task_type": "inbox_triage"})
+    session_id = r1.json()["session_id"]
+    client.post(
+        f"/sessions/{session_id}/intercept",
+        json={"tool_name": "read_inbox", "params": {"count": "5"}},
+    )
+
+    r2 = client.get(f"/sessions/{session_id}/report")
+    assert r2.status_code == 200
+    body = r2.json()
+    assert body["session_id"] == session_id
+    assert body["total_calls"] == 1
+    assert body["calls"][0]["tool_name"] == "read_inbox"
+    assert "divergence" in body["calls"][0]["scoring_detail"]
+
+
+def test_investigation_report_for_unknown_session_returns_404(client):
+    r = client.get("/sessions/nonexistent-session-id/report")
+    assert r.status_code == 404

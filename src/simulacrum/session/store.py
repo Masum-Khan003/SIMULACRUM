@@ -35,10 +35,19 @@ class CallOutcome(Enum):
 class CallAttempt:
     call: ToolCall
     outcome: CallOutcome
+    scoring_detail: dict | None = None  # real, Phase 3 addition (finding 021,
+    # closes §18's SIEM-export gap AND enables the investigation report):
+    # a plain, JSON-serializable dict of real per-call detector results
+    # (schema/divergence/escalation/loop-rate/exfiltration/content-pattern),
+    # not detector dataclass objects -- deliberately kept as plain data,
+    # same principle as ExplanationContext, to avoid import coupling
+    # between session storage and the detectors package. None when no
+    # real scoring occurred for this attempt (e.g. circuit-breaker
+    # bypass paths), never a fabricated placeholder.
 
 
 class SessionStore(Protocol):
-    def append_attempt(self, *, session_id: str, call: ToolCall, outcome: CallOutcome) -> None: ...
+    def append_attempt(self, *, session_id: str, call: ToolCall, outcome: CallOutcome, scoring_detail: dict | None = None) -> None: ...
     def append_call(self, *, session_id: str, call: ToolCall) -> None: ...
     def get_attempts(self, *, session_id: str) -> tuple[CallAttempt, ...]: ...
     def get_calls(self, *, session_id: str) -> tuple[ToolCall, ...]: ...
@@ -49,8 +58,10 @@ class SessionStore(Protocol):
 class InMemorySessionStore:
     _sessions: dict[str, list[CallAttempt]] = field(default_factory=dict)
 
-    def append_attempt(self, *, session_id: str, call: ToolCall, outcome: CallOutcome) -> None:
-        self._sessions.setdefault(session_id, []).append(CallAttempt(call=call, outcome=outcome))
+    def append_attempt(self, *, session_id: str, call: ToolCall, outcome: CallOutcome, scoring_detail: dict | None = None) -> None:
+        self._sessions.setdefault(session_id, []).append(
+            CallAttempt(call=call, outcome=outcome, scoring_detail=scoring_detail)
+        )
 
     def append_call(self, *, session_id: str, call: ToolCall) -> None:
         self.append_attempt(session_id=session_id, call=call, outcome=CallOutcome.ALLOWED)
