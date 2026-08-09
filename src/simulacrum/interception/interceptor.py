@@ -42,6 +42,7 @@ from simulacrum.detectors import (
     check_tool_loop_rate,
 )
 from simulacrum.interception.circuit_breaker import CircuitBreaker, CircuitOpenError
+from simulacrum.interception.redis_circuit_breaker import CircuitBreakerProtocol
 from simulacrum.interception.fake_tools import FakeToolRegistry
 from simulacrum.observability import (
     record_action,
@@ -185,7 +186,10 @@ def intercept_and_call(
     tier_registry: ToolRegistry,
     schema_registry: SchemaRegistry,
     session_store: SessionStore,
-    circuit_breaker: CircuitBreaker,
+    circuit_breaker: CircuitBreakerProtocol,  # real, structural interface --
+    # CircuitBreaker (in-memory, single-instance) and RedisCircuitBreaker
+    # (multi-instance, Phase 3 §23) are both genuine drop-ins, same
+    # discipline as SessionStore's protocol/InMemory/Redis split.
     approval_queue: ApprovalQueue,
     content_pattern_detector: ContentPatternDetector,
     task_representation: TaskRepresentation,

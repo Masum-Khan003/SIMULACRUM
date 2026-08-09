@@ -194,15 +194,32 @@ entries (append-only history without removing superseded text).
   proven in test_injection.py). Revisit only if a future attack class
   needs malformed-call testing against these specific tools.
 
-## Phase 3 / Stretch (correctly out of MVP scope per blueprint §23)
+## Phase 3 / Stretch (approved production plan: multi-instance breaker
+## -> approver role -> investigation report; second-framework
+## integration deferred as its own decision; web UI explicitly stays
+## out of scope per §02, confirmed, no amendment)
 
-- Multi-instance circuit-breaker state (Redis-backed)
+- ~~Multi-instance circuit-breaker state (Redis-backed)~~ — RESOLVED
+  (finding 019). RedisCircuitBreaker built as a real, structural
+  drop-in for the in-memory CircuitBreaker (CircuitBreakerProtocol,
+  same pattern as SessionStore's protocol/InMemory/Redis split).
+  Real, direct proof across two independent instances sharing one
+  Redis-backed breaker: replica B observes replica A's trip without
+  ever calling the failing function itself; both observe recovery-
+  after-timeout and success-clears-state identically. Wired into
+  AppState as an explicit opt-in (SIMULACRUM_MULTI_INSTANCE_BREAKER=1,
+  same pattern as SIMULACRUM_USE_REAL_EMBEDDINGS), default unchanged.
+  4 new real tests (require real Redis), full suite 322/322.
 - Independent ops/security-approver role, separate from the
-  task-initiating user
-- Second agent-framework integration
-- Exportable per-session investigation report
-- Lightweight human-approval web UI (explicitly out of scope — a
-  functional CLI/API is in scope, a polished web UI is not, per §02)
+  task-initiating user — NEXT, per approved plan
+- Exportable per-session investigation report — after approver role
+- Second agent-framework integration — DEFERRED as its own explicit
+  decision (like decision 001), not defaulted into
+- Lightweight human-approval web UI — CONFIRMED out of scope per §02
+  ("a functional CLI/API is in scope, a polished web UI is not").
+  Explicitly discussed and re-confirmed rather than silently dropped:
+  Grafana (already built, §18) + direct chart generation from real
+  findings data covers real visualization needs without a dashboard.
 
 ## External, not code issues
 

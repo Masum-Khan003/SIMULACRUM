@@ -19,6 +19,7 @@ from simulacrum.detectors import build_default_schema_registry
 from simulacrum.explainability import GroqExplainer, TemplateExplainer
 from simulacrum.interception import build_default_registry
 from simulacrum.interception.circuit_breaker import CircuitBreaker
+from simulacrum.interception.redis_circuit_breaker import RedisCircuitBreaker
 from simulacrum.risk_tiers import ToolRegistry
 from simulacrum.session import RedisSessionStore
 from simulacrum.task_sim import TASK_INITIAL_USER_TEXT, TaskType
@@ -32,7 +33,19 @@ class AppState:
         self.tool_registry = build_default_registry(tier_registry=self.tier_registry)
         self.schema_registry = build_default_schema_registry()
         self.session_store = RedisSessionStore(redis_url=settings.redis_url)
-        self.circuit_breaker = CircuitBreaker()
+        # Real, explicit opt-in for multi-instance/shared circuit-breaker
+        # state (Phase 3, §23, resolves §12 v2 gap 7) -- same discipline
+        # as SIMULACRUM_USE_REAL_EMBEDDINGS above: NOT the default,
+        # requires an explicit env var, reuses settings.redis_url (no
+        # new required config). Default remains the original in-memory
+        # CircuitBreaker, correct for the still-common single-instance
+        # deployment case (§12's own stated MVP scope).
+        if os.environ.get("SIMULACRUM_MULTI_INSTANCE_BREAKER") == "1":
+            self.circuit_breaker = RedisCircuitBreaker(
+                redis_url=settings.redis_url, breaker_name="detector-scoring"
+            )
+        else:
+            self.circuit_breaker = CircuitBreaker()
         self.approval_queue = ApprovalQueue()
 
         # Real MiniLM is opt-in (SIMULACRUM_USE_REAL_EMBEDDINGS=1),
