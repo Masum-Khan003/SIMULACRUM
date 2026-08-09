@@ -57,23 +57,27 @@ This is a self-contained portfolio/research engineering project, held to a produ
 
 Every tool call passes through the interception layer before it executes.
 
-Agent Framework → Interception Layer → Real Tool / Sandbox Tool
-(any tool-calling (wraps the tool-
-runtime) execution function)
+```mermaid
+flowchart LR
+    A["Agent Framework<br/><small>any tool-calling runtime</small>"] --> B["Interception Layer<br/><small>wraps the tool-execution function</small>"]
+    B --> C["Real Tool / Sandbox Tool"]
+    B --> D["Per-Call Detectors<br/><small>schema, divergence, escalation,<br/>loop-rate, exfiltration, content-pattern</small>"]
+    B --> E["Session Store<br/><small>Redis-backed, rolling trajectory</small>"]
+    B --> F["Trajectory Model<br/><small>LLM-based goal-drift reasoning,<br/>async, off-path</small>"]
+    D --> G["Risk Tier Engine<br/><small>allow / flag / require-approval / block</small>"]
+    E --> G
+    F -.-> G
 
-                        │
-            ┌─────────────┼─────────────┐
-            ▼             ▼             ▼
-    Per-Call Detectors  Session Store   Trajectory Model
-    (schema, divergence, (Redis-backed,  (LLM-based goal-
-     escalation, loop-    rolling         drift reasoning,
-     rate, exfiltration,  trajectory)     async, off-path)
-     content-pattern)
-            │
-            ▼
-    Risk Tier Engine → allow / flag / require-approval / block
-    (per tool-risk class: read-only, reversible, irreversible
-     low/high value)
+    style A fill:#131320,stroke:#5f5c7d,color:#e9e8f5
+    style B fill:#1a1530,stroke:#a78bfa,color:#e9e8f5
+    style C fill:#131320,stroke:#5f5c7d,color:#e9e8f5
+    style D fill:#241d33,stroke:#eba659,color:#e9e8f5
+    style E fill:#241d33,stroke:#eba659,color:#e9e8f5
+    style F fill:#241d33,stroke:#eba659,color:#e9e8f5
+    style G fill:#2c1f1c,stroke:#e2624a,color:#e9e8f5
+```
+
+Per-tool-risk-class fail-open/fail-closed governs what happens when the guardrail itself is degraded — a read-only call fails open; an irreversible, high-value call fails closed and hard-blocks.
 
 **Six real detectors** run through a circuit breaker as one scoring unit on every call:
 
@@ -260,33 +264,35 @@ print(result.response_tier, result.allowed)
 
 ---
 
-## Project Structure     
+## Project Structure
 
+```
 simulacrum/
-├── config/ # No-default resource URLs, env-driven settings
-├── interception/ # Tool-call wrapper, circuit breaker (in-memory + Redis)
-├── risk_tiers/ # Tool risk taxonomy, registry, fail-open/closed policy
-├── detectors/ # Six explicit per-call and per-session detectors
-├── attribution/ # Task embedding, provenance ranking, boundary/drift detection
-├── tier_engine/ # Response-tier decision, approval queue + ops-approver role
-├── task_sim/ # Shared normal-session generator (single source of truth)
-├── attack_suite/ # Labeled attack generators, needle-in-haystack realism
-├── generalization_set/ # Held-out mutated variants + real AgentDojo adapter
-├── adversarial/ # Gradual-escalation, adaptive-retry, poisoning tests
-├── evaluation/ # Calibration reports, baselines, combination-rule experiments
-├── investigation/ # Exportable per-session investigation report
-├── explainability/ # Structured explanations, attribution payloads
-├── drift/ # PSI, event-driven version trigger, promotion gate
-├── redaction/ # Sensitive-parameter scrubbing before any output
-├── observability/ # Prometheus metrics
-├── api/ # FastAPI app
-└── session/ # SessionStore (in-memory + Redis)
+├── config/               # No-default resource URLs, env-driven settings
+├── interception/         # Tool-call wrapper, circuit breaker (in-memory + Redis)
+├── risk_tiers/           # Tool risk taxonomy, registry, fail-open/closed policy
+├── detectors/            # Six explicit per-call and per-session detectors
+├── attribution/          # Task embedding, provenance ranking, boundary/drift detection
+├── tier_engine/          # Response-tier decision, approval queue + ops-approver role
+├── task_sim/             # Shared normal-session generator (single source of truth)
+├── attack_suite/         # Labeled attack generators, needle-in-haystack realism
+├── generalization_set/   # Held-out mutated variants + real AgentDojo adapter
+├── adversarial/          # Gradual-escalation, adaptive-retry, poisoning tests
+├── evaluation/            # Calibration reports, baselines, combination-rule experiments
+├── investigation/         # Exportable per-session investigation report
+├── explainability/        # Structured explanations, attribution payloads
+├── drift/                 # PSI, event-driven version trigger, promotion gate
+├── redaction/              # Sensitive-parameter scrubbing before any output
+├── observability/          # Prometheus metrics
+├── api/                     # FastAPI app
+└── session/                  # SessionStore (in-memory + Redis)
 
 docs/
-├── findings/ # 21 numbered, permanent records of real bugs, results, and limits
-├── decisions/ # Formal architectural decision records
-├── assets/ # Real charts and dashboard screenshots
+├── findings/    # 21 numbered, permanent records of real bugs, results, and limits
+├── decisions/   # Formal architectural decision records
+├── assets/      # Real charts and dashboard screenshots
 └── CALIBRATION_REPORT.md, README_TABLE_DATA.md, BACKLOG.md
+```
 
 ---
 
@@ -330,7 +336,7 @@ This project's real engineering history — including honest negative results �
 | Phase 2 — Hardening | ✅ Complete |
 | Phase 3 — Multi-instance breaker, ops-approver role, investigation report | ✅ Complete |
 | Phase 3 — Second agent-framework integration | Deferred ([decision 002](docs/decisions/002-second-framework-deferred.md)) |
-| Human-approval web UI | Out of scope by design (§02 of the blueprint) |
+| Human-approval web UI | Out of scope by design |
 
 ---
 
