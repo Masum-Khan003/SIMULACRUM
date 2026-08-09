@@ -334,11 +334,20 @@ entries (append-only history without removing superseded text).
   session-awareness has real value for LLM-based reasoning, resolving
   the ambiguity this entry itself flagged. Full writeup:
   docs/findings/016-context-isolation-session-awareness-confirmed.md.
-  Also worth noting, not yet tested: goal
-  drift specifically requires trajectory awareness by definition (an
-  input-only classifier structurally cannot evaluate "does this
-  SEQUENCE deviate from the goal" one call at a time) -- this may be
-  where session-awareness's real value actually lives, untested here.
+  ~~Goal drift specifically requires trajectory awareness by
+  definition~~ — RESOLVED (finding 017). Reused GroqDriftDetector's
+  own real, calibrated 5-case corpus (test_goal_drift.py's
+  REAL_CASES). Real, honest result -- not the one initially expected:
+  InputOnlyClassifier didn't just MISS drift cases, it flagged EVERY
+  case including both legitimate ones (false positives on
+  reply_to_email/book_flight judged with zero task context).
+  GroqDriftDetector got all 5 real cases right, including both
+  legitimate ones correctly cleared. Stronger confirmation than a
+  simple miss: input-only reasoning is structurally incapable of
+  distinguishing drift from legitimate multi-step work at all, not
+  just insufficiently sensitive to it. Permanent regression tests in
+  tests/unit/test_goal_drift_structural_comparison.py. Full writeup:
+  docs/findings/017-goal-drift-input-only-structural-test.md.
 
 - ~~"Explicit-detectors-only baseline"~~ — RESOLVED. Real,
   honest scoping correction found first: only divergence and
